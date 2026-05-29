@@ -104,6 +104,8 @@ pre .c{color:#6b7075}
 .reveal-stagger.in > *:nth-child(5){transition-delay:.32s}
 .reveal-stagger.in > *:nth-child(6){transition-delay:.40s}
 .split{display:grid;grid-template-columns:1.2fr 1fr;gap:30px;max-width:1180px;align-items:start}
+.footer{font-size:11px;color:var(--muted);margin-top:24px;font-family:'JetBrains Mono',monospace}
+.footer a{color:var(--teal);text-decoration:none}
 @media(max-width:980px){section{padding:48px 32px 48px 60px}.split{grid-template-columns:1fr}h1{font-size:40px}h2{font-size:30px}}
 </style>
 </head>
@@ -121,10 +123,15 @@ pre .c{color:#6b7075}
 
 <section id="cover" data-label="Cover">
   <div class="reveal-stagger">
-    <div class="eyebrow">R9700 — Part 6 of 6</div>
-    <h1>The verdict: three runtimes, one card, one workload</h1>
-    <p class="lead">Six parts in, the R9700 has been benched on vLLM, on llama.cpp Vulkan, on llama.cpp HIP, and now on SGLang. This is the close of the series — the numbers side by side, the runtime that wins each phase, and the one tuning gap that would change the ranking.</p>
-    <p class="muted" style="font-size:13px">Pradeep Nuthalapati · AMD · May 2026</p>
+    <div class="eyebrow">AMD Field AI Enthusiast · by Pradeep Nallimelli · Part 6 of 6 · May 2026</div>
+    <h1>The verdict.<br>Three runtimes, one card, one workload.</h1>
+    <p class="lead">Six parts in, the Radeon AI PRO R9700 has been benched on vLLM, on llama.cpp Vulkan, on llama.cpp HIP, and now on SGLang. This is the close of the series — the numbers side by side, the runtime that wins each phase, and the one tuning gap that would change the ranking.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">SGLang single stream</span><span class="num">44</span><div class="desc">tok / sec on Qwen3-Coder-30B-A3B AWQ-native — clean, untuned MoE kernel.</div></div>
+      <div class="card"><span class="lbl">SGLang at N=16</span><span class="num">252</span><div class="desc">aggregate tok / sec — scales linearly to N=8, hits a TTFT cliff at N=16.</div></div>
+      <div class="card"><span class="lbl">Runtimes proven</span><span class="num">3</span><div class="desc">vLLM, llama.cpp, SGLang — all running production-grade on a 32 GB workstation card.</div></div>
+    </div>
+    <div class="footer">Continues from <a href="part5-r9700-sglang-build-journey.html">Part 5 — Bringing SGLang up on RDNA4</a>. Bench date: 2026-05-29. Author: Pradeep Nallimelli.</div>
   </div>
 </section>
 

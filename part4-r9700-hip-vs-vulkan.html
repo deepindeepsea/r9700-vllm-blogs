@@ -104,6 +104,8 @@ pre .c{color:#6b7075}
 .reveal-stagger.in > *:nth-child(5){transition-delay:.32s}
 .reveal-stagger.in > *:nth-child(6){transition-delay:.40s}
 .split{display:grid;grid-template-columns:1.2fr 1fr;gap:30px;max-width:1180px;align-items:start}
+.footer{font-size:11px;color:var(--muted);margin-top:24px;font-family:'JetBrains Mono',monospace}
+.footer a{color:var(--teal);text-decoration:none}
 @media(max-width:980px){section{padding:48px 32px 48px 60px}.split{grid-template-columns:1fr}h1{font-size:40px}h2{font-size:30px}}
 </style>
 </head>
@@ -121,10 +123,15 @@ pre .c{color:#6b7075}
 
 <section id="cover" data-label="Cover">
   <div class="reveal-stagger">
-    <div class="eyebrow">R9700 — Part 4 of 6</div>
-    <h1>The split decision: HIP wins prefill, Vulkan wins decode</h1>
-    <p class="lead">Part 3 showed that llama.cpp on Vulkan was 2.1× faster than vLLM on the same R9700. The obvious next question — does the HIP backend beat Vulkan when both run the same model — turns out to have a more interesting answer than either side expected.</p>
-    <p class="muted" style="font-size:13px">Pradeep Nuthalapati · AMD · May 2026</p>
+    <div class="eyebrow">AMD Field AI Enthusiast · by Pradeep Nallimelli · Part 4 of 6 · May 2026</div>
+    <h1>The split decision.<br>HIP wins prefill. Vulkan wins decode.</h1>
+    <p class="lead">Same Radeon AI PRO R9700. Same Mixture-of-Experts model. Two builds of llama.cpp — one against ROCm, one against Vulkan. The two backends do not just trade blows. They trade workloads, and the right pick depends on which phase of the request you are paying for.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">Prefill winner</span><span class="num">3,491</span><div class="desc">tok / sec pp512 on HIP — rocBLAS lands the big GEMMs. Vulkan trails at 2,822.</div></div>
+      <div class="card"><span class="lbl">Decode winner</span><span class="num">108</span><div class="desc">tok / sec tg128 on Vulkan — RADV wins the narrow-shape dispatch. HIP trails at 92.</div></div>
+      <div class="card"><span class="lbl">Operational read</span><span class="num">Both</span><div class="desc">Carry both builds. Route prefill-heavy traffic to HIP, decode-heavy traffic to Vulkan.</div></div>
+    </div>
+    <div class="footer">Continues from <a href="part3-r9700-the-vulkan-plot-twist.html">Part 3 — The Vulkan plot twist</a>. Bench date: 2026-05. Author: Pradeep Nallimelli.</div>
   </div>
 </section>
 

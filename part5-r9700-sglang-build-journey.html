@@ -104,6 +104,8 @@ pre .c{color:#6b7075}
 .reveal-stagger.in > *:nth-child(5){transition-delay:.32s}
 .reveal-stagger.in > *:nth-child(6){transition-delay:.40s}
 .split{display:grid;grid-template-columns:1.2fr 1fr;gap:30px;max-width:1180px;align-items:start}
+.footer{font-size:11px;color:var(--muted);margin-top:24px;font-family:'JetBrains Mono',monospace}
+.footer a{color:var(--teal);text-decoration:none}
 @media(max-width:980px){section{padding:48px 32px 48px 60px}.split{grid-template-columns:1fr}h1{font-size:40px}h2{font-size:30px}}
 </style>
 </head>
@@ -121,10 +123,15 @@ pre .c{color:#6b7075}
 
 <section id="cover" data-label="Cover">
   <div class="reveal-stagger">
-    <div class="eyebrow">R9700 — Part 5 of 6</div>
-    <h1>Bringing SGLang up on RDNA4</h1>
-    <p class="lead">SGLang is the fastest open inference scheduler today. It is also, until this build, a CUDA-only runtime. Getting it onto an R9700 took three real fixes — each small, each easy to miss, each blocking on its own.</p>
-    <p class="muted" style="font-size:13px">Pradeep Nuthalapati · AMD · May 2026</p>
+    <div class="eyebrow">AMD Field AI Enthusiast · by Pradeep Nallimelli · Part 5 of 6 · May 2026</div>
+    <h1>Bringing SGLang up on RDNA4.<br>A CUDA-first runtime, taught a new card.</h1>
+    <p class="lead">SGLang is the fastest open inference scheduler today and, until this build, a CUDA-only runtime. Getting it onto the Radeon AI PRO R9700 took three small fixes — each easy to miss, each blocking on its own — and a model swap nobody told us we needed. Here is the full bring-up walk-through, fixes and all.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">Upstream support</span><span class="num">CDNA only</span><div class="desc">gfx942 and gfx950 on the allow-list. RDNA4 not on it. One-line patch added gfx1200 / gfx1201.</div></div>
+      <div class="card"><span class="lbl">Kernels built</span><span class="num">3</span><div class="desc">sgl_kernel common ops, AWQ GEMV, wvSplitK INT4 MoE — all native gfx1201 HIP.</div></div>
+      <div class="card"><span class="lbl">Server boot</span><span class="num">27.7 GB</span><div class="desc">VRAM after model load on a 32 GB card. Listening on :8100, ready for benches.</div></div>
+    </div>
+    <div class="footer">Continues from <a href="part4-r9700-hip-vs-vulkan.html">Part 4 — The split decision</a>. Build date: 2026-05. Author: Pradeep Nallimelli.</div>
   </div>
 </section>
 
