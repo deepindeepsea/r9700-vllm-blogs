@@ -1,5 +1,7 @@
 # Part 3 — The Vulkan Plot Twist: When the Runtime Mattered More Than the Silicon
 
+*By Pradeep Nallimelli — AMD Field AI Enthusiast*
+
 *Reading time: ~5 minutes*
 
 In [Part 1](./part1-setting-up-llms-on-a-32gb-workstation-card.md) we set up vLLM on a 32 GB workstation GPU and got 7.5 tokens per second from a dense 14B model.

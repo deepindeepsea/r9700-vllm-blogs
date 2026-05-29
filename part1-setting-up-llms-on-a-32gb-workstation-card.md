@@ -1,5 +1,7 @@
 # Part 1 — Can a 32 GB Workstation GPU Really Serve LLMs? Setting Up vLLM on RDNA4
 
+*By Pradeep Nallimelli — AMD Field AI Enthusiast*
+
 *Reading time: ~5 minutes*
 
 ## The question

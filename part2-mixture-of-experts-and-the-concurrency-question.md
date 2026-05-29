@@ -1,5 +1,7 @@
 # Part 2 — When 30 Billion Parameters Got Faster Than 14 Billion: MoE and the Concurrency Question
 
+*By Pradeep Nallimelli — AMD Field AI Enthusiast*
+
 *Reading time: ~5 minutes*
 
 In [Part 1](./part1-setting-up-llms-on-a-32gb-workstation-card.md) we set up a single 32 GB workstation GPU with vLLM and a 14B dense model, and discovered it was bandwidth-bound at single-stream — about 7.5 tokens per second. Useful, but not exciting.

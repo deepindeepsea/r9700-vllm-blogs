@@ -1,5 +1,7 @@
 # Blog series — Serving LLMs on a 32 GB Workstation GPU
 
+*By Pradeep Nallimelli — AMD Field AI Enthusiast*
+
 Three-part series, ~5-minute read each. Sanitized for public/Confluence use — no internal hostnames, IPs, tokens, or org-specific paths.
 
 | Part | Title | Theme |
@@ -30,6 +32,3 @@ Post Part 1 first, then Part 2 a few days later, then Part 3. Each post referenc
 - `../bench_moe_2026-05-28.md` — full vLLM MoE concurrency sweep + tuning addendum.
 - `../bench_moe_2026-05-28.json` — JSON sweep data.
 - Memory file `r9700_llamacpp_vulkan.md` — the Vulkan single-stream finding.
-## Raw benchmark data
-
-Sanitized vLLM dense + MoE concurrency sweep results live in [`benchmarks/`](./benchmarks/) — markdown writeup + JSON. No internal hostnames, IPs, usernames, or tokens.
