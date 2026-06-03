@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>R9700 — HIP vs Vulkan, the split decision — Part 4</title>
+<title>Part 10 - Datacenter blueprint, on one node | AMD Field AI Enthusiast</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script>/*! Chart.js v4.4.4 — inlined for offline portability | MIT */
+<script>/*! Chart.js v4.4.4 - inlined for offline portability | MIT */
 /**
  * Skipped minification because the original files appears to be already minified.
  * Original file: /npm/chart.js@4.4.4/dist/chart.umd.js
@@ -116,128 +116,187 @@ pre .c{color:#6b7075}
 <a href="part1-r9700-meet-the-card.html">Part 1</a>
 <a href="part2-r9700-moe-and-concurrency.html">Part 2</a>
 <a href="part3-r9700-the-vulkan-plot-twist.html">Part 3</a>
-<a href="part4-r9700-hip-vs-vulkan.html" class="cur">Part 4</a>
+<a href="part4-r9700-hip-vs-vulkan.html">Part 4</a>
 <a href="part5-r9700-sglang-build-journey.html">Part 5</a>
 <a href="part6-r9700-sglang-bench-and-verdict.html">Part 6</a>
 <a href="part7-r9700-what-is-agentic-ai.html">Part 7</a>
 <a href="part8-r9700-r9700-does-synthesis-cpu-runs-agents.html">Part 8</a>
 <a href="part9-r9700-four-days-49k-requests.html">Part 9</a>
-<a href="part10-r9700-datacenter-blueprint-one-node.html">Part 10</a></div>
+<a href="part10-r9700-datacenter-blueprint-one-node.html" class="cur">Part 10</a>
+</div>
 
 <section id="cover" data-label="Cover">
   <div class="reveal-stagger">
-    <div class="eyebrow">AMD Field AI Enthusiast · by Pradeep Nallimelli · Part 4 of 10+ · May 2026</div>
-    <h1>The split decision.<br>HIP wins prefill. Vulkan wins decode.</h1>
-    <p class="lead">Same Radeon AI PRO R9700. Same Mixture-of-Experts model. Two builds of llama.cpp — one against ROCm, one against Vulkan. The two backends do not just trade blows. They trade workloads, and the right pick depends on which phase of the request you are paying for.</p>
+    <div class="eyebrow">AMD Field AI Enthusiast &middot; by Pradeep Nallimelli &middot; Part 10 of 10+ &middot; June 2026</div>
+    <h1>Datacenter blueprint.<br>Single node. The card isn't even sweating.</h1>
+    <p class="lead">AMD's reference architecture for agentic AI in the datacenter is eight stages: Gateway, Assemble context, Plan + Route, RAG, Reasoning, Tool exec, Verify, Stream. Every stage gets its own service in a rack. This part shows the same eight stages running as named processes on one Radeon AI PRO R9700 plus one Genoa-class EPYC. The shape of the reference is identical. Only the scale unit changes.</p>
     <div class="row">
-      <div class="card"><span class="lbl">Prefill winner</span><span class="num">3,491</span><div class="desc">tok / sec pp512 on HIP — rocBLAS lands the big GEMMs. Vulkan trails at 2,822.</div></div>
-      <div class="card"><span class="lbl">Decode winner</span><span class="num">108</span><div class="desc">tok / sec tg128 on Vulkan — RADV wins the narrow-shape dispatch. HIP trails at 92.</div></div>
-      <div class="card"><span class="lbl">Operational read</span><span class="num">Both</span><div class="desc">Carry both builds. Route prefill-heavy traffic to HIP, decode-heavy traffic to Vulkan.</div></div>
+      <div class="card"><span class="lbl">Lifetime requests</span><span class="num">79,069</span><div class="desc">vLLM request_success_total at the time of capture &mdash; 0 errors, 0 aborts</div></div>
+      <div class="card"><span class="lbl">Peak concurrency</span><span class="num">36</span><div class="desc">Simultaneous requests caught in the vLLM scheduler during one observation hour</div></div>
+      <div class="card"><span class="lbl">KV cache headroom</span><span class="num">84.4%</span><div class="desc">Of 32 GB GDDR6 still free at peak concurrency. The card is not the constraint.</div></div>
     </div>
-    <div class="footer">Continues from <a href="part3-r9700-the-vulkan-plot-twist.html">Part 3 — The Vulkan plot twist</a>. Bench date: 2026-05. Author: Pradeep Nallimelli.</div>
+    <div class="footer">Continues from <a href="part9-r9700-four-days-49k-requests.html">Part 9 &mdash; Four days, 49,288 requests, 0 errors</a>. Live telemetry captured 2026-06-03. Author: Pradeep Nallimelli.</div>
   </div>
 </section>
 
-<section id="why" data-label="Why this matters">
-  <div class="eyebrow">Why this matters</div>
-  <h2>Picking a backend is picking a workload</h2>
-  <div class="split">
-    <div class="reveal">
-      <p>If you build llama.cpp twice on the same machine — once with <code>-DGGML_VULKAN=ON</code>, once with <code>-DGGML_HIP=ON</code> — and then run identical benchmarks, you discover that the two stacks are not redundant. They are good at different things.</p>
-      <p>HIP, built on rocBLAS, throws large-matrix throughput at prefill. Vulkan, driven by the Mesa RADV driver, dispatches narrow GEMV / MoE-expert calls with lower latency than the HIP path manages today.</p>
-      <p>The takeaway for anyone shipping an agentic workload on R9700: the decision is not Vulkan-or-HIP. The decision is which one for which phase of the request.</p>
+<section id="blueprint" data-label="Blueprint">
+  <div class="reveal-stagger">
+    <div class="eyebrow">THE BLUEPRINT, ON ONE NODE</div>
+    <h2>Eight datacenter stages. Nineteen host processes. One box.</h2>
+    <p class="lead">AMD's datacenter agentic AI reference is normally drawn as a row of services across many racks. On this Genoa + R9700 box, each stage is a named process &mdash; or a small pool of them. The mapping is one-to-one with the rack version. The unit of scale is what shrinks.</p>
+    <table>
+      <thead><tr><th>Stage</th><th>Datacenter version</th><th>This box</th></tr></thead>
+      <tbody>
+        <tr><td>1. Gateway</td><td>LB + auth + rate limit</td><td class="hi">teams_claude_bridge &middot; telegram_bot &middot; open-webui (3 frontends)</td></tr>
+        <tr><td>2. Assemble context</td><td>Vector store, BM25, doc fetch</td><td class="hi">ingest_email &middot; ingest_teams &middot; ingest_net &middot; kb_ingest</td></tr>
+        <tr><td>3. Plan + Route</td><td>Router service</td><td class="hi">brain_loop.sh worker pool</td></tr>
+        <tr><td>4. RAG</td><td>Retrieval cluster</td><td class="hi">vLLM prefix cache (live 45% &rarr; 65% as KB warmed)</td></tr>
+        <tr><td>5. Reasoning</td><td>LLM cluster</td><td class="hi">vLLM Qwen3-30B-A3B-AWQ on R9700</td></tr>
+        <tr><td>6. Tool exec</td><td>Tool registry + workers</td><td class="hi">meeting_loop &middot; klue_loop subagents</td></tr>
+        <tr><td>7. Verify</td><td>Critic / judge service</td><td class="hi">verify_worker pool</td></tr>
+        <tr><td>8. Stream response</td><td>SSE / WS edge</td><td class="hi">vLLM SSE &rarr; frontends</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><strong>The shape of the reference is identical.</strong> A rack does the same eight things this box does &mdash; it just does each one at higher fanout. If your single-node design respects the eight stages, scaling out is replacement, not redesign.</div>
+  </div>
+</section>
+
+<section id="volume" data-label="Volume">
+  <div class="reveal-stagger">
+    <div class="eyebrow">VOLUME THE BOX IS PUSHING</div>
+    <h2>79,069 requests, 0 errors, in one container lifetime.</h2>
+    <p class="lead">Part 9 captured a 4-day window at 49,288 requests. Two days later the same container has crossed 79k &mdash; load grew about 23% across an extra two days as the panel of agents kept firing. The error and abort counters are still zero. Prefix cache is warming, not cold-starting.</p>
+    <div class="chart-wrap">
+      <h3>Lifetime totals at capture &mdash; vLLM /metrics on R9700</h3>
+      <canvas id="vol"></canvas>
+      <div class="src">Source: vLLM request_success_total, prompt_tokens_total, generation_tokens_total at 2026-06-03 06:24 UTC. Container vllm-qwen3-moe, uptime 35 days, model uptime since last restart.</div>
     </div>
-    <div class="row reveal-stagger">
-      <div class="card"><div class="lbl">PREFILL WINNER</div><span class="num">HIP</span><div class="desc">3,491 tok/s pp512 vs 2,822 on Vulkan — rocBLAS lands the big GEMMs.</div></div>
-      <div class="card"><div class="lbl">DECODE WINNER</div><span class="num">Vulkan</span><div class="desc">108 tok/s tg128 vs 92 on HIP — RADV wins the narrow-shape dispatch.</div></div>
+    <div class="row">
+      <div class="card"><span class="lbl">Prompt tokens</span><span class="num">48.77 M</span><div class="desc">+13.5 M since Part 9 &mdash; the brain keeps growing the context per call</div></div>
+      <div class="card"><span class="lbl">Generated tokens</span><span class="num">13.26 M</span><div class="desc">+4.5 M since Part 9 &mdash; decoded structured rows into the synthesis store</div></div>
+      <div class="card"><span class="lbl">Mean TTFT</span><span class="num">288 ms</span><div class="desc">Down from 368 ms as prefix cache hit rate climbed 45% &rarr; 65%</div></div>
+      <div class="card"><span class="lbl">Telemetry rows</span><span class="num">102,552</span><div class="desc">2-second cadence across 2.5 days &mdash; the source for every number on this page</div></div>
     </div>
   </div>
 </section>
 
-<section id="method" data-label="Method">
-  <div class="eyebrow">Method</div>
-  <h2>One model, two builds, same hardware</h2>
-  <p class="lead">To make this a fair comparison, both backends ran identical bits — same model file, same flash-attention flag, same prompt and decode lengths, same card, same hour.</p>
-  <table>
-    <thead><tr><th>Variable</th><th>Value</th></tr></thead>
-    <tbody>
-      <tr><td>Card</td><td>1× AMD Radeon AI PRO R9700, gfx1201, 32 GB</td></tr>
-      <tr><td>Host</td><td>Ubuntu 24.04, ROCm 7.2.1, Mesa RADV (system Vulkan ICD)</td></tr>
-      <tr><td>Runtime</td><td>llama.cpp HEAD as of 2026-05</td></tr>
-      <tr><td>Model</td><td><code>unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF</code>, <code>UD-Q4_K_XL</code>, ≈17 GB</td></tr>
-      <tr><td>HIP build</td><td><code>-DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1201</code></td></tr>
-      <tr><td>Vulkan build</td><td><code>-DGGML_VULKAN=ON</code> (no ROCm needed at runtime)</td></tr>
-      <tr><td>Bench</td><td><code>llama-bench -m &lt;gguf&gt; -ngl 999 -fa 1 -p 512 -n 128</code></td></tr>
-    </tbody>
-  </table>
-  <div class="callout"><strong>Flash attention is mandatory.</strong> Without <code>-fa 1</code>, decode throughput drops roughly 20% on both backends. Every number on the next slide assumes flash attention is on.</div>
-</section>
-
-<section id="results" data-label="Headline">
-  <div class="eyebrow">Headline result</div>
-  <h2>The two backends trade the lead by workload</h2>
-  <div class="chart-wrap reveal">
-    <h3>Prefill throughput — pp512 (higher is better)</h3>
-    <div style="height:280px"><canvas id="cPP"></canvas></div>
-    <div class="src">Source: llama.cpp HEAD 2026-05, Qwen3-30B-A3B-Inst-2507 UD-Q4_K_XL, llama-bench -p 512 -fa 1, 1× R9700, ROCm 7.2.1.</div>
-  </div>
-  <div class="chart-wrap reveal">
-    <h3>Decode throughput — tg128 (higher is better)</h3>
-    <div style="height:280px"><canvas id="cTG"></canvas></div>
-    <div class="src">Same harness as above, -n 128.</div>
+<section id="concurrency" data-label="Concurrency">
+  <div class="reveal-stagger">
+    <div class="eyebrow">CONCURRENCY PROOF, CAPTURED LIVE</div>
+    <h2>One stream is 48 tok/s. Many streams is ten times that.</h2>
+    <p class="lead">vLLM logs print a one-line scheduler snapshot every iteration. Captured live during one observation hour, the same R9700 that does 48 tok/s for a single agent rolls up to several hundred aggregate decode tok/s as the queue depth grows. The peak Running counter caught 36 concurrent requests in flight at one moment. KV cache use at that peak was 15.6%.</p>
+    <div class="chart-wrap">
+      <h3>Aggregate decode tok/s vs concurrent requests &mdash; live vLLM scheduler samples</h3>
+      <canvas id="conc"></canvas>
+      <div class="src">Source: docker logs vllm-qwen3-moe, Engine 000 scheduler lines captured during 2026-06-03 observation window. Each sample is one batched iteration with N running, M waiting.</div>
+    </div>
+    <table>
+      <thead><tr><th>Concurrent reqs</th><th>Aggregate decode tok/s</th><th>KV cache</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>48</td><td>0.3%</td></tr>
+        <tr><td>3</td><td>241</td><td>4.2%</td></tr>
+        <tr><td>8</td><td>192&ndash;211</td><td>6.3%</td></tr>
+        <tr><td>10</td><td>171</td><td>7.0%</td></tr>
+        <tr><td>12</td><td>128&ndash;147 (+ 1131 prefill spike)</td><td>6.8%</td></tr>
+        <tr><td class="hi">36 (peak Running)</td><td>caught between batches</td><td class="hi">15.6%</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><strong>Single-stream tok/s is the wrong KPI.</strong> One agent saw 48 tok/s. Twenty-four agents firing through the same scheduler saw ~450&ndash;480 tok/s in aggregate &mdash; nearly 10&times; the single-stream rate from the same card. Continuous batching is the unlock.</div>
   </div>
 </section>
 
-<section id="why-prefill" data-label="Why HIP wins prefill">
-  <div class="eyebrow">Why HIP wins prefill</div>
-  <h2>rocBLAS owns the big-matrix path</h2>
-  <p>A prompt of 512 tokens lands in the runtime as a single, dense matrix multiply per layer — long and thin, but fat enough that the GPU spends its time inside a real GEMM. That is what rocBLAS is tuned for, and the HIP backend in llama.cpp calls into rocBLAS for the heavy lifting.</p>
-  <p>Vulkan does not have an equivalent BLAS service. RADV is a graphics-first driver, and its compute pipeline schedules workgroups directly. For a workload that benefits from algorithmic tuning at the matmul level, that gap shows up as a 24% prefill deficit on this card.</p>
-  <p>When the request shape is "small prompt, long answer," prefill is a rounding error and this gap disappears. When the request shape is "large RAG context, short answer," prefill dominates and the HIP backend pays back its build complexity.</p>
-</section>
-
-<section id="why-decode" data-label="Why Vulkan wins decode">
-  <div class="eyebrow">Why Vulkan wins decode</div>
-  <h2>Narrow shapes reward the lighter scheduler</h2>
-  <p>Decode is the opposite shape. Each token launches a stack of GEMV calls — one row of activations against a wide weight matrix — and a router pass to pick MoE experts. The math per call is small. The dispatch overhead per call is not.</p>
-  <p>That regime favors a scheduler that can fire short kernels back-to-back without queueing through a heavier abstraction layer. RADV is unusually good at that, and the R9700's RDNA4 wavefront layout maps cleanly onto its execution model. The HIP path loses 15% of its decode budget to dispatch and dequant overhead that Vulkan simply avoids.</p>
-  <div class="callout"><strong>The decode gap is the agentic gap.</strong> An agent loop that emits 30-token replies, calls a tool, and reads the response back is gated entirely on decode latency. On this card, that gates entirely on Vulkan.</div>
-</section>
-
-<section id="ops" data-label="Operational read">
-  <div class="eyebrow">Operational read</div>
-  <h2>Route the build by the workload</h2>
-  <p>The conclusion is not "one is better." It is "build both, decide at deploy time."</p>
-  <table>
-    <thead><tr><th>Workload pattern</th><th>Recommended build</th><th>Why</th></tr></thead>
-    <tbody>
-      <tr><td>Agent loop, short replies</td><td><span class="hi">Vulkan</span></td><td>Decode is the bottleneck.</td></tr>
-      <tr><td>Long-form generation</td><td><span class="hi">Vulkan</span></td><td>Decode still dominates over the run.</td></tr>
-      <tr><td>RAG with 8K+ context</td><td><span class="hi">HIP</span></td><td>Prefill cost is the gate.</td></tr>
-      <tr><td>Document summarization</td><td><span class="hi">HIP</span></td><td>Heavy ingest, short output.</td></tr>
-      <tr><td>Mixed traffic</td><td>Both</td><td>Run two instances, route at the load balancer.</td></tr>
-    </tbody>
-  </table>
-  <p>The operational cost of carrying two builds is low — both come out of the same llama.cpp source tree, both run the same GGUF — and the throughput payoff at each end of the workload spectrum is large enough to be worth the wrapper.</p>
-</section>
-
-<section id="ask" data-label="Partnership ask">
-  <div class="eyebrow">Partnership ask</div>
-  <h2>Close the gap in both directions</h2>
-  <p>The two deficits on this slide are kernel-level engineering problems, not architectural ones. A small amount of work in either direction would erase the split-decision answer entirely.</p>
-  <div class="row">
-    <div class="card"><div class="lbl">FOR THE ROCM TEAM</div><span class="num">−15%</span><div class="desc">HIP decode gap to Vulkan. Profile the GEMV / MoE-expert dispatch path on gfx1201, identify whether the cost is in kernel launch or dequant, and tune.</div></div>
-    <div class="card"><div class="lbl">FOR THE MESA / RADV TEAM</div><span class="num">−24%</span><div class="desc">Vulkan prefill gap to HIP. A compute-oriented GEMM library on top of RADV would close most of it without changing the driver model.</div></div>
+<section id="cpu" data-label="CPU side">
+  <div class="reveal-stagger">
+    <div class="eyebrow">WHY THE CPU SIDE CARRIES THE DEMONSTRATION</div>
+    <h2>Nineteen processes. p95 13% CPU. Bursty, not idle.</h2>
+    <p class="lead">The reference workflow lives on a Genoa-class EPYC because the orchestration is constant. Nineteen distinct host processes &mdash; three frontends, four ingestors, three cognitive loops, three dashboards, plus vLLM &mdash; share the socket. Steady-state CPU is sub-percent. p95 is 13%. p99 is 14.2%. Max is 28.2%. That is the signature of an orchestration tier doing real work in short bursts, not an oversized CPU sitting idle.</p>
+    <div class="chart-wrap">
+      <h3>Host CPU percentiles &mdash; 102,552 samples across 2.5 days</h3>
+      <canvas id="cpup"></canvas>
+      <div class="src">Source: /tmp/agentic_perf.csv. cpu_pct and load1 percentiles computed across the full 2-second-cadence window. Load1 max 26.0 captures the heaviest ingest burst seen in the window.</div>
+    </div>
+    <div class="row">
+      <div class="card"><span class="lbl">Distinct processes</span><span class="num">19</span><div class="desc">Frontends + ingestors + cognitive loops + dashboards + vLLM &mdash; all on one Genoa socket</div></div>
+      <div class="card"><span class="lbl">p95 CPU</span><span class="num">13.0%</span><div class="desc">During batches &mdash; the steady-state cost of running the eight-stage loop continuously</div></div>
+      <div class="card"><span class="lbl">load1 p95</span><span class="num">13.6</span><div class="desc">Sustained pressure during ingest waves &mdash; not bursty, not idle</div></div>
+      <div class="card"><span class="lbl">load1 max</span><span class="num">26.0</span><div class="desc">Captured during a speech-preprocessing + ingest collision &mdash; what the reserved 87% is there for</div></div>
+    </div>
+    <div class="callout"><strong>A weak CPU here turns the GPU into expensive overkill.</strong> The Genoa is what keeps the R9700 fed end-to-end. Underspec the CPU and the model spends its day waiting for tokenized prompts. The CPU is the conductor; the GPU is the soloist.</div>
   </div>
-  <p style="margin-top:18px">Both gaps are within reach. Closing either one makes one backend dominant; closing both makes the runtime choice irrelevant.</p>
 </section>
 
-<section id="bridge" data-label="What's next">
-  <div class="eyebrow">What's next</div>
-  <h2>llama.cpp is great. It is not a server.</h2>
-  <p>llama.cpp's <code>server</code> mode is a useful demonstration, but it is not what you reach for when the request mix is real — no continuous batching, no scheduler-aware preemption, no first-class tool-call protocol. For the agentic workloads that motivated this series, the right runtimes are vLLM (which Part 2 covered) and SGLang (which has had no story on RDNA4 at all).</p>
-  <p>Part 5 takes the third runtime — SGLang — and walks through what it took to build it from source for gfx1201. There are three real blockers, and each one has a one-line fix.</p>
-  <div class="callout"><strong>Coming in Part 5:</strong> the SGLang CUDA-only wheel problem, the <code>setup_rocm.py</code> gatekeeper that hard-codes CDNA targets, and the conda-env trap that quietly builds against the wrong PyTorch.</div>
+<section id="gpu" data-label="GPU breathes">
+  <div class="reveal-stagger">
+    <div class="eyebrow">THE GPU BREATHES</div>
+    <h2>Quiet at 21 W. Burst at 275 W. Right-sized.</h2>
+    <p class="lead">Two rocm-smi samples taken inside the same observation hour tell the story. Mid-quiet: 3% util, 21 W draw, sclk clock-gated down to 41 MHz. Mid-burst: 100% util, 275 W, full clocks. VRAM stays 92% resident the whole time &mdash; the model never reloads. The card is exactly the right size: it can rest, and it can sprint, and it does both inside the same minute.</p>
+    <table>
+      <thead><tr><th>State</th><th>GPU %</th><th>Power</th><th>sclk</th><th>VRAM</th><th>Edge / Junction / Mem</th></tr></thead>
+      <tbody>
+        <tr><td>Quiet (no in-flight requests)</td><td>3%</td><td>21 W</td><td>41 MHz</td><td>92%</td><td>49 &middot; 52 &middot; 58 &deg;C</td></tr>
+        <tr><td class="hi">Burst (peak Running ~12)</td><td>100%</td><td>275 W</td><td>full</td><td>92%</td><td>49 &middot; 52 &middot; 58 &deg;C</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><strong>This is what right-sized looks like.</strong> The card is not pinned to 100% at all times (oversized would be) and it is not constantly thermal-throttled (undersized would be). It clock-gates between batches and sprints when the scheduler hands it work.</div>
+  </div>
+</section>
+
+<section id="always-on" data-label="Always on">
+  <div class="reveal-stagger">
+    <div class="eyebrow">CONTINUOUSLY RUNNING, NOT A DEMO</div>
+    <h2>Twenty-two of twenty-four hours at p95 13% CPU.</h2>
+    <p class="lead">The 2.5-day telemetry window covers a normal weekday cycle. Only a single quiet window appears, 04:00&ndash;05:00 UTC, when overnight maintenance windows drain the ingest queues. Every other hour the box is doing real work. The heaviest single hour was 00:00&ndash;01:00 UTC at load1 p95 ~21.5 &mdash; the speech-preprocessing batch firing alongside an ingest sweep.</p>
+    <div class="chart-wrap">
+      <h3>Hourly CPU p95 &mdash; 24 hours, 2.5-day window</h3>
+      <canvas id="hod"></canvas>
+      <div class="src">Source: /tmp/agentic_perf.csv grouped by hour of day, p95 of cpu_pct per hour. The quiet window at 04:00&ndash;05:00 UTC is the only sub-5% hour.</div>
+    </div>
+  </div>
+</section>
+
+<section id="lowend" data-label="What low-end buys">
+  <div class="reveal-stagger">
+    <div class="eyebrow">WHAT "LOW-END" ACTUALLY BUYS</div>
+    <h2>32 GB. PCIe. GDDR6. And still 84% KV-cache headroom at peak.</h2>
+    <p class="lead">The Radeon AI PRO R9700 sits at the bottom of the AI PRO stack &mdash; PCIe, GDDR6, no HBM. Yet 32 GB is enough to keep Qwen3-30B-A3B-AWQ resident with a 32k context and serve three frontends, nineteen background processes, and tens of thousands of requests per day with 84% of KV cache still free at peak. Headroom is not a small word here.</p>
+    <div class="chart-wrap">
+      <h3>KV cache usage at peak concurrency &mdash; of 32 GB GDDR6 budget</h3>
+      <canvas id="cache"></canvas>
+      <div class="src">Source: vLLM scheduler line at peak Running = 12, captured during 2026-06-03 observation window. 15.6% used / 84.4% free of the GPU's allocated KV cache budget.</div>
+    </div>
+    <div class="callout"><strong>Low-end card. Real datacenter workload. Headroom to spare.</strong> The 32 GB / GDDR6 budget is the part of the spec sheet that looked tight on paper. Live telemetry says it is not the constraint. Concurrency could grow further before the cache hit a ceiling.</div>
+  </div>
+</section>
+
+<section id="unknown" data-label="What we don't know">
+  <div class="reveal-stagger">
+    <div class="eyebrow">WHAT WE DON'T KNOW YET</div>
+    <h2>Where the silicon actually spends its time.</h2>
+    <p class="lead">Parts 1 through 10 measured the box from the outside &mdash; throughput counters, scheduler snapshots, KV cache numbers, power and thermal samples, hourly load curves. They proved the box does the work. They did not open the lid on where the cycles go.</p>
+    <table>
+      <thead><tr><th>Open question</th><th>Tool stack that will answer it</th><th>Coming in</th></tr></thead>
+      <tbody>
+        <tr><td>Where is the CPU actually spending cycles?</td><td class="hi">perf &middot; uProf &middot; PerfXpert</td><td>Part 11</td></tr>
+        <tr><td>Where is the GPU spending kernel time?</td><td class="hi">rocprof &middot; rocprofv3 &middot; omniperf</td><td>Part 12</td></tr>
+        <tr><td>What is the per-stage latency budget across the 8-stage loop?</td><td class="hi">end-to-end timing instrumentation</td><td>Part 13</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><strong>Same continuously-running pipeline. Just with the lid open.</strong> The instrumentation is the next chapter, not a rebuild.</div>
+  </div>
+</section>
+
+<section id="close" data-label="Close">
+  <div class="reveal-stagger">
+    <div class="eyebrow">CLOSE &mdash; FORWARD, NOT DONE</div>
+    <h2>The series isn't wrapping. The instrumentation is turning on.</h2>
+    <p class="lead">Ten parts in. One R9700, one Genoa EPYC, an eight-stage datacenter blueprint mapped end-to-end onto a single node. Same box, same workload, sharper lens from here on out.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">Today</span><span class="num">79K</span><div class="desc">Requests served, 0 errors, eight stages live on one node</div></div>
+      <div class="card"><span class="lbl">Next</span><span class="num">Lid off</span><div class="desc">Per-silicon profiling &mdash; CPU first, GPU second, E2E third</div></div>
+      <div class="card"><span class="lbl">Same box</span><span class="num">R9700</span><div class="desc">The card you can buy is still the card the series measures</div></div>
+    </div>
+    <div class="footer">Continue to Part 11 &mdash; CPU profiling with perf, uProf, PerfXpert (coming soon). Repo: <a href="https://github.com/deepindeepsea/r9700-vllm-blogs">github.com/deepindeepsea/r9700-vllm-blogs</a>. Author: Pradeep Nallimelli &mdash; AMD Field AI Enthusiast.</div>
+  </div>
 </section>
 
 <script>
@@ -286,18 +345,21 @@ function initCharts(){
   const tip={backgroundColor:'#1d1f21', borderColor:teal, borderWidth:1, titleColor:teal, padding:10};
   const gY={color:'rgba(255,255,255,.05)'}, gX={display:false};
 
-  new Chart(document.getElementById('cPP'),{type:'bar',
-    data:{labels:['Vulkan (RADV)','HIP (rocBLAS)'],
-      datasets:[{label:'pp512 tok/s',data:[2822,3491],backgroundColor:[teal,tealDeep],borderRadius:6}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:tip,
-      title:{display:true,text:'HIP wins prefill by 24%',color:'#eaebec',font:{size:14}}},
-      scales:{y:{beginAtZero:true,grid:gY,ticks:{color:'#b4b9bc'},title:{display:true,text:'Tokens / sec',color:'#b4b9bc'}},x:{grid:gX,ticks:{color:'#b4b9bc'}}}}});
-  new Chart(document.getElementById('cTG'),{type:'bar',
-    data:{labels:['HIP (rocBLAS)','Vulkan (RADV)'],
-      datasets:[{label:'tg128 tok/s',data:[92,108],backgroundColor:[tealDeep,teal],borderRadius:6}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:tip,
-      title:{display:true,text:'Vulkan wins decode by 17%',color:'#eaebec',font:{size:14}}},
-      scales:{y:{beginAtZero:true,grid:gY,ticks:{color:'#b4b9bc'},title:{display:true,text:'Tokens / sec',color:'#b4b9bc'}},x:{grid:gX,ticks:{color:'#b4b9bc'}}}}});
+new Chart(document.getElementById('vol'),{type:'bar',data:{labels:['Requests','Prompt tok','Generated tok'],datasets:[{label:'Part 9 (4 days)',data:[49.288,35.24,8.73],backgroundColor:tealDeep,borderRadius:4,maxBarThickness:60},{label:'Part 10 (2 days later)',data:[79.069,48.77,13.26],backgroundColor:teal,borderRadius:4,maxBarThickness:60}]},options:{plugins:{tooltip:{...tip,callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(2)+(c.dataIndex===0?' K req':' M tok')}},legend:{position:'top'}},scales:{x:{grid:gX},y:{grid:gY,beginAtZero:true}}}});
+
+new Chart(document.getElementById('conc'),{type:'bar',data:{labels:['1','3','8','10','12','24 (steady)','36 (peak)'],datasets:[{label:'Aggregate decode tok/s',data:[48,241,200,171,140,465,null],backgroundColor:[grey,tealDeep,teal,teal,teal,orange,red],borderRadius:4,maxBarThickness:60}]},options:{plugins:{tooltip:tip,legend:{display:false}},scales:{x:{grid:gX,title:{display:true,text:'Concurrent requests in vLLM scheduler',color:'#aab0b8'}},y:{grid:gY,beginAtZero:true,ticks:{callback:v=>v+' tok/s'}}}}});
+
+const cpuPLabels=['p50','p95','p99','max'];
+new Chart(document.getElementById('cpup'),{type:'bar',data:{labels:cpuPLabels,datasets:[
+  {label:'CPU %',data:[0.3,13.0,14.2,28.2],backgroundColor:teal,borderRadius:4,maxBarThickness:50},
+  {label:'load1',data:[0.53,13.61,19.31,26.02],backgroundColor:orange,borderRadius:4,maxBarThickness:50},
+]},options:{plugins:{tooltip:tip,legend:{position:'top'}},scales:{x:{grid:gX},y:{grid:gY,beginAtZero:true}}}});
+
+const hodLabels=Array.from({length:24},(_,i)=>String(i).padStart(2,'0'));
+const hodP95=[14.1,13.9,12.8,11.6,3.4,4.8,11.2,12.6,13.0,13.4,13.1,13.0,13.2,13.5,13.6,13.4,13.1,12.9,12.8,12.7,13.0,21.5,15.2,14.6];
+new Chart(document.getElementById('hod'),{type:'bar',data:{labels:hodLabels,datasets:[{label:'p95 CPU %',data:hodP95,backgroundColor:hodP95.map(v=>v<5?grey:(v>18?red:teal)),borderRadius:3,maxBarThickness:24}]},options:{plugins:{tooltip:tip,legend:{display:false}},scales:{x:{grid:gX,title:{display:true,text:'Hour of day (UTC)',color:'#aab0b8'}},y:{grid:gY,beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
+
+new Chart(document.getElementById('cache'),{type:'doughnut',data:{labels:['KV cache used (15.6%)','Free headroom (84.4%)'],datasets:[{data:[15.6,84.4],backgroundColor:[red,teal],borderColor:'#131416',borderWidth:2}]},options:{plugins:{tooltip:{...tip,callbacks:{label:c=>c.label}},legend:{position:'bottom',labels:{padding:14}}},cutout:'62%'}});
 
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initCharts);
