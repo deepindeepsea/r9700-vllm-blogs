@@ -128,13 +128,13 @@ pre .c{color:#6b7075}
   <div class="reveal-stagger">
     <div class="eyebrow">AMD Field AI Enthusiast &middot; by Pradeep Nallimelli &middot; Part 9 of 9 &middot; June 2026</div>
     <h1>Four days. 49,288 requests.<br>Zero errors.</h1>
-    <p class="lead">The bench numbers from Parts 1 through 6 said the card could do this. The four-day telemetry says it does. One Radeon AI PRO R9700, one Qwen3-30B-A3B-AWQ model, ten background agents, four ingestors, three frontends. No retries. No fallbacks. No restarts. Here is the production verdict and what it means for sizing a Field-AI box.</p>
+    <p class="lead">The bench numbers from Parts 1 through 6 said the card could do this. The four-day telemetry says it does. One Radeon AI PRO R9700, one Qwen3-30B-A3B-AWQ model, ten background agents, four ingestors, three frontends. No retries. No fallbacks. No restarts. Here is the production verdict and what it means for sizing a agentic AI node.</p>
     <div class="row">
       <div class="card"><span class="lbl">Uptime</span><span class="num">4 days</span><div class="desc">vllm-qwen3-moe container has not restarted since launch</div></div>
       <div class="card"><span class="lbl">Errors</span><span class="num">0</span><div class="desc">0 abort, 0 error finish reasons across 49,288 successful calls</div></div>
       <div class="card"><span class="lbl">Throughput</span><span class="num">12,322</span><div class="desc">Requests per day, sustained, at p50 0.3% CPU and 100% GPU</div></div>
     </div>
-    <div class="footer">Continues from <a href="part8-r9700-r9700-does-synthesis-cpu-runs-agents.html">Part 8 &mdash; R9700 does synthesis, EPYC runs the agents</a>. Telemetry: vLLM /metrics + /tmp/agentic_perf.csv on 10.216.176.12. Author: Pradeep Nallimelli.</div>
+    <div class="footer">Continues from <a href="part8-r9700-r9700-does-synthesis-cpu-runs-agents.html">Part 8 &mdash; R9700 does synthesis, EPYC runs the agents</a>. Telemetry: vLLM /metrics + /tmp/agentic_perf.csv on an internal lab host. Author: Pradeep Nallimelli.</div>
   </div>
 </section>
 
@@ -147,7 +147,7 @@ pre .c{color:#6b7075}
       <div class="card"><span class="lbl">Requests served</span><span class="num">49,288</span><div class="desc">Lifetime since container launch. 44,111 stop + 5,177 length, 0 abort, 0 error.</div></div>
       <div class="card"><span class="lbl">Mean time to first token</span><span class="num">368 ms</span><div class="desc">vLLM time_to_first_token_seconds_sum / _count. Continuous batching keeps prefill latency flat.</div></div>
       <div class="card"><span class="lbl">Mean end-to-end latency</span><span class="num">8.92 s</span><div class="desc">Per request, including the long-context prefills that dominate the workload mix.</div></div>
-      <div class="card"><span class="lbl">Token throughput</span><span class="num">127 tok/s</span><div class="desc">(prefill + decode) / elapsed across the window. Per-request average; aggregate batched throughput is higher.</div></div>
+      <div class="card"><span class="lbl">Token throughput</span><span class="num">127 tok/s</span><div class="desc">Per-request average over the 4-day window. Aggregate batched decode under 23&ndash;24 concurrent agents has been observed at <strong>~450&ndash;480 tok/s</strong> &mdash; the same R9700 that does ~50 tok/s for one user scales nearly 10&times; under real concurrent load.</div></div>
     </div>
   </div>
 </section>
@@ -173,7 +173,7 @@ pre .c{color:#6b7075}
     <div class="chart-wrap">
       <h3>Daily call volume by request class &mdash; production traffic mix</h3>
       <canvas id="req"></canvas>
-      <div class="src">Source: agent_runs.db + brain_verify logs + agent.py session log. 4-day window divided by 4 to get per-day. Total ~12.3k req/day.</div>
+      <div class="src">Source: agent_runs.db + verify_worker logs + agent.py session log. 4-day window divided by 4 to get per-day. Total ~12.3k req/day.</div>
     </div>
   </div>
 </section>
@@ -195,23 +195,23 @@ pre .c{color:#6b7075}
         <tr><td>Host memory</td><td>24.5 GB peak</td><td>755 GB</td><td class="hi">3.2%</td></tr>
       </tbody>
     </table>
-    <div class="callout"><strong>The R9700 is the constraint. Everything else is headroom.</strong> A Field-AI box does not need a Genoa-X. It needs one good GPU and a CPU big enough to feed it. The 96-core EPYC 9684X here is doing the work of 16 &mdash; but the 12 CCDs are what make it quiet under load, not the core count.</div>
+    <div class="callout"><strong>The R9700 is the constraint. Everything else is headroom.</strong> An agentic AI node does not need a top-bin CPU. It needs one good GPU and a CPU big enough to feed it. The Genoa-class EPYC here is doing the work of 16 &mdash; but the 12 CCDs are what make it quiet under load, not the core count.</div>
   </div>
 </section>
 
 <section id="sizing" data-label="Sizing">
   <div class="reveal-stagger">
     <div class="eyebrow">SIZING GUIDANCE</div>
-    <h2>What an FAE needs to build the same box.</h2>
+    <h2>What you need to build the same node.</h2>
     <p class="lead">Based on four days of real telemetry. Not a spec sheet. Not a projection.</p>
     <table>
       <thead><tr><th>Component</th><th>Minimum that worked</th><th>Why</th></tr></thead>
       <tbody>
         <tr><td>GPU</td><td class="hi">Radeon AI PRO R9700 (32 GB)</td><td>Holds Qwen3-30B-A3B-AWQ at 90% mem-util with 32k context</td></tr>
         <tr><td>GPU memory</td><td class="hi">32 GB minimum</td><td>Below this, drop to dense 14B (Part 1) or to 8B class</td></tr>
-        <tr><td>CPU</td><td class="hi">16-24 cores (2-3 CCDs)</td><td>p95 measured at &lt;13% of 96 cores. 2 CCDs covers normal load; a 3rd absorbs Whisper bursts cleanly.</td></tr>
-        <tr><td>Host memory</td><td class="hi">64 GB</td><td>Working set is 24 GB peak. 64 GB covers SQLite WAL + page cache + Whisper buffers comfortably.</td></tr>
-        <tr><td>Storage</td><td class="hi">1 TB NVMe</td><td>knowledge.db + brain.db + meetings.db + agent_history.db = single-digit GB. The rest is for ingested files.</td></tr>
+        <tr><td>CPU</td><td class="hi">16-24 cores (2-3 CCDs)</td><td>p95 measured at &lt;13% of 96 cores. 2 CCDs covers normal load; a 3rd absorbs speech-preprocessing bursts cleanly.</td></tr>
+        <tr><td>Host memory</td><td class="hi">64 GB</td><td>Working set is 24 GB peak. 64 GB covers SQLite WAL + page cache + the speech preprocessor buffers comfortably.</td></tr>
+        <tr><td>Storage</td><td class="hi">1 TB NVMe</td><td>the retrieval store + the synthesis store + meetings.db + agent_history.db = single-digit GB. The rest is for ingested files.</td></tr>
         <tr><td>OS</td><td class="hi">Ubuntu 24.04 + ROCm 7.2.1</td><td>The exact stack that produced these numbers</td></tr>
       </tbody>
     </table>
@@ -226,10 +226,10 @@ pre .c{color:#6b7075}
     <div class="row">
       <div class="card"><span class="lbl">1</span><span class="num">MoE wins</span><div class="desc">Qwen3-30B-A3B at 51 tok/s single-stream beats dense 14B at 7.5 tok/s on the same card. Always pick the right shape first (Part 2).</div></div>
       <div class="card"><span class="lbl">2</span><span class="num">Prefill bound</span><div class="desc">35 M prompt vs 8.7 M decode. Prefill bandwidth is the bottleneck for agentic, not single-stream decode.</div></div>
-      <div class="card"><span class="lbl">3</span><span class="num">CPU is idle</span><div class="desc">p50 0.3%. Spend the silicon budget on the GPU. Conductor work needs cores but not many.</div></div>
+      <div class="card"><span class="lbl">3</span><span class="num">CPU is the conductor</span><div class="desc">Ingestion, embeddings, orchestration, speech/doc pre-processing &mdash; the CPU is constantly working. A weak CPU here turns the GPU into expensive overkill. A right-sized EPYC keeps the GPU fed end-to-end.</div></div>
       <div class="card"><span class="lbl">4</span><span class="num">Single writer</span><div class="desc">One process per store. No write contention. The entire brain pipeline is built on this rule.</div></div>
       <div class="card"><span class="lbl">5</span><span class="num">Verify always</span><div class="desc">Continuous fact-check + re-synth is what separates an agent from a confident liar.</div></div>
-      <div class="card"><span class="lbl">6</span><span class="num">Privacy at the router</span><div class="desc">One switch in brain_verify decides local vs gateway. Customer rows never leave.</div></div>
+      <div class="card"><span class="lbl">6</span><span class="num">Privacy at the router</span><div class="desc">One switch in verify_worker decides local vs gateway. Customer rows never leave.</div></div>
     </div>
   </div>
 </section>
@@ -243,7 +243,7 @@ pre .c{color:#6b7075}
     <div class="row">
       <div class="card"><span class="lbl">Series total</span><span class="num">9 parts</span><div class="desc">From "meet the card" to "49,288 production requests"</div></div>
       <div class="card"><span class="lbl">Hardware</span><span class="num">1 GPU</span><div class="desc">Radeon AI PRO R9700, 32 GB, gfx1201, ROCm 7.2.1</div></div>
-      <div class="card"><span class="lbl">Outcome</span><span class="num">Field-AI</span><div class="desc">A reproducible box any FAE can build. The deck mapping continues in the next series.</div></div>
+      <div class="card"><span class="lbl">Outcome</span><span class="num">Reference</span><div class="desc">A reproducible single-node design anyone can build. Part 10 maps this loop to AMD's datacenter agentic blueprint.</div></div>
     </div>
     <div class="footer">Series complete. Repo: <a href="https://github.com/deepindeepsea/r9700-vllm-blogs">github.com/deepindeepsea/r9700-vllm-blogs</a>. Author: Pradeep Nallimelli &mdash; AMD Field AI Enthusiast.</div>
   </div>
@@ -300,7 +300,7 @@ new Chart(document.getElementById('lat'),{type:'bar',data:{labels:['Mean per req
   {label:'Decode + queue',data:[8.552],backgroundColor:orange,borderRadius:4,maxBarThickness:80},
 ]},options:{indexAxis:'y',plugins:{tooltip:{...tip,callbacks:{label:c=>c.dataset.label+': '+c.parsed.x.toFixed(2)+' s'}},legend:{position:'top'}},scales:{x:{stacked:true,grid:gY,ticks:{callback:v=>v+' s'}},y:{stacked:true,grid:gX}}}});
 
-new Chart(document.getElementById('req'),{type:'bar',data:{labels:['kb_synth','brain_verify','agent.py Q&A'],datasets:[{label:'Calls per day',data:[6800,3200,2300],backgroundColor:[teal,tealDeep,orange],borderRadius:6,maxBarThickness:90}]},options:{plugins:{tooltip:tip,legend:{display:false}},scales:{x:{grid:gX},y:{grid:gY,beginAtZero:true}}}});
+new Chart(document.getElementById('req'),{type:'bar',data:{labels:['kb_synth','verify_worker','agent.py Q&A'],datasets:[{label:'Calls per day',data:[6800,3200,2300],backgroundColor:[teal,tealDeep,orange],borderRadius:6,maxBarThickness:90}]},options:{plugins:{tooltip:tip,legend:{display:false}},scales:{x:{grid:gX},y:{grid:gY,beginAtZero:true}}}});
 
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initCharts);

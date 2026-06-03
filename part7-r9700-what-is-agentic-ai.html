@@ -128,13 +128,27 @@ pre .c{color:#6b7075}
   <div class="reveal-stagger">
     <div class="eyebrow">AMD Field AI Enthusiast &middot; by Pradeep Nallimelli &middot; Part 7 of 9 &middot; June 2026</div>
     <h1>What is agentic AI.<br>End-to-end, on one R9700.</h1>
-    <p class="lead">The first six parts measured the card. Parts 7 through 9 measure the workload. The FAE Command Center has been live on this single Radeon AI PRO R9700 for four days, serving real production traffic. Here is what an agentic AI workload actually is, broken into five phases, and where each phase runs.</p>
+    <p class="lead">The first six parts measured the card. Parts 7 through 9 measure the workload. An agentic AI workflow &mdash; built for demonstration purposes &mdash; has been live on this single Radeon AI PRO R9700 for four days, serving steady traffic from a small panel of agents. The point is not the agents themselves: anyone can swap in their own. The point is the loop, and where each step of the loop runs on a single EPYC + Radeon node. Here is what an agentic workload actually is, broken into five phases.</p>
     <div class="row">
       <div class="card"><span class="lbl">Workload</span><span class="num">5</span><div class="desc">Phases: Sense, Synthesize, Verify, Decide, Act</div></div>
       <div class="card"><span class="lbl">Live requests</span><span class="num">49,288</span><div class="desc">Successful inference calls in ~4 days, 0 errors, 0 aborts</div></div>
       <div class="card"><span class="lbl">GPU footprint</span><span class="num">1</span><div class="desc">One Radeon AI PRO R9700 (32 GB, gfx1201) handles all model inference</div></div>
     </div>
     <div class="footer">Continues from <a href="part6-r9700-sglang-bench-and-verdict.html">Part 6 &mdash; SGLang bench and verdict</a>. Telemetry window: 2026-05-31 to 2026-06-03. Author: Pradeep Nallimelli.</div>
+  </div>
+</section>
+
+<section id="why-vllm" data-label="Why vLLM">
+  <div class="reveal-stagger">
+    <div class="eyebrow">SERVING STACK</div>
+    <h2>Why vLLM for this workload.</h2>
+    <p class="lead">Parts 1 through 6 measured the R9700 across three serving stacks &mdash; vLLM, llama.cpp (Vulkan and HIP), and SGLang. For an agentic workload, the choice is vLLM, and the reason is structural: this is a multi-agent system. Traffic does not arrive as one user typing one message. It arrives as many agents firing at the same model at the same time &mdash; classifier ticks, verifier loops, synthesis batches, Q&amp;A from frontends &mdash; all generating simultaneous requests across overlapping batches. vLLM's continuous batching folds those concurrent requests into one rolling forward pass, so the GPU stays at duty cycle even when twenty agents are mid-flight.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">Why not single-stream</span><span class="num">~50 tok/s</span><div class="desc">One agent, one request at a time. Wastes the card the moment a second agent wakes up.</div></div>
+      <div class="card"><span class="lbl">Why vLLM</span><span class="num">~450&ndash;480 tok/s</span><div class="desc">Observed aggregate decode at 23&ndash;24 concurrent agents on this R9700. Nearly 10&times; the single-stream rate &mdash; the multi-agent unlock.</div></div>
+      <div class="card"><span class="lbl">Mechanism</span><span class="num">continuous batching</span><div class="desc">vLLM's scheduler packs in-flight requests into one rolling forward pass. New requests join mid-batch; finished ones leave; the GPU never drains.</div></div>
+    </div>
+    <div class="callout"><strong>Multi-agent = multi-stream by default.</strong> A demonstration agentic pipeline that is constantly running generates simultaneous traffic by design. A serving stack that cannot batch concurrent requests turns one busy GPU into one bottlenecked GPU. vLLM is what makes a low-end PCIe card like the R9700 economical for real concurrent local agentic workloads.</div>
   </div>
 </section>
 
@@ -147,7 +161,7 @@ pre .c{color:#6b7075}
       <div class="card"><span class="lbl">Chatbot</span><span class="num">1:1</span><div class="desc">One human prompt, one model reply. Stateless across calls.</div></div>
       <div class="card"><span class="lbl">RAG</span><span class="num">1:N</span><div class="desc">One prompt, N retrieved docs, one synthesized reply. Still human-triggered.</div></div>
       <div class="card"><span class="lbl">Agentic AI</span><span class="num">N:N</span><div class="desc">N timers, N inboxes, N tools. Continuous loop of observe, decide, act, remember.</div></div>
-      <div class="card"><span class="lbl">Field-AI box</span><span class="num">24x7</span><div class="desc">One physical box, agents always on, model always warm, single-writer state.</div></div>
+      <div class="card"><span class="lbl">agentic AI node</span><span class="num">24x7</span><div class="desc">One physical box, agents always on, model always warm, single-writer state.</div></div>
     </div>
   </div>
 </section>
@@ -158,14 +172,14 @@ pre .c{color:#6b7075}
     <h2>Sense, Synthesize, Verify, Decide, Act.</h2>
     <p class="lead">Every agentic workload reduces to these five phases. The shape of your hardware bill comes from how you map them.</p>
     <div class="chart-wrap">
-      <h3>Agentic workflow phases &mdash; mapped to FAE Command Center components</h3>
+      <h3>Agentic workflow phases &mdash; mapped to demonstration components</h3>
       <canvas id="ph"></canvas>
-      <div class="src">Source: live process inventory on Genoa-X 10.216.176.12 (2026-06-03). Bar shows distinct components per phase in the production deployment.</div>
+      <div class="src">Source: live process inventory on an internal lab host (2026-06-03). Bar shows distinct components per phase in the production deployment.</div>
     </div>
     <table>
       <thead><tr><th>Phase</th><th>What it does</th><th>Runs on</th></tr></thead>
       <tbody>
-        <tr><td>1. Sense</td><td>Ingest email, Teams chats, SharePoint files, meeting recordings, Salesforce changes</td><td class="hi">CPU (EPYC) + I/O</td></tr>
+        <tr><td>1. Sense</td><td>Ingest email, Teams chats, shared documents and files, meeting recordings, Salesforce changes</td><td class="hi">CPU (EPYC) + I/O</td></tr>
         <tr><td>2. Synthesize</td><td>Embed, summarize, extract entities, write structured rows into the brain</td><td class="hi">R9700 (LLM) + CPU (embeddings)</td></tr>
         <tr><td>3. Verify</td><td>Fact-check every claim, score veracity, requeue weak rows for re-synthesis</td><td class="hi">R9700 + AMD Enterprise gateway (public oracle)</td></tr>
         <tr><td>4. Decide</td><td>Route user/agent questions to the right tool, plan multi-step actions</td><td class="hi">R9700 (LLM tool-calling)</td></tr>
@@ -179,7 +193,7 @@ pre .c{color:#6b7075}
   <div class="reveal-stagger">
     <div class="eyebrow">WORKLOAD SHAPE</div>
     <h2>What a 4-day window looks like.</h2>
-    <p class="lead">Four days of production traffic from one FAE Manager and a team of seven FAEs, fed by 8,892 indexed meeting recordings and a continuous email/SharePoint stream.</p>
+    <p class="lead">Four days of production traffic from a small panel of users, fed by 8,892 indexed meeting recordings and a continuous email/shared documents stream.</p>
     <div class="row">
       <div class="card"><span class="lbl">Inference calls</span><span class="num">49,288</span><div class="desc">vLLM request_success_total. Finish reasons: 44,111 stop &middot; 5,177 length &middot; 0 error &middot; 0 abort.</div></div>
       <div class="card"><span class="lbl">Prompt tokens</span><span class="num">35.24 M</span><div class="desc">~715 tokens per call on average. The brain feeds the model long context.</div></div>
@@ -200,13 +214,13 @@ pre .c{color:#6b7075}
       <canvas id="mix"></canvas>
       <div class="src">Source: vLLM /metrics on R9700 (qwen3-moe model). Window: ~96 hours of agentic traffic. Container vllm-qwen3-moe, rocm/vllm-dev:rocm7.2.1_navi.</div>
     </div>
-    <p class="muted">From Part 4: this card does <strong>3,491 prompt tok/s</strong> on llama.cpp HIP. From Part 2: vLLM holds <strong>381 tok/s aggregate decode at N=16</strong>. Both numbers matter for agents, but prefill bandwidth is what bounds the brain feeding the model 715-token contexts forty-nine thousand times.</p>
+    <p class="muted">From Part 4: this card does <strong>3,491 prompt tok/s</strong> on llama.cpp HIP. From Part 2: vLLM holds <strong>381 tok/s aggregate decode at N=16</strong>. In live telemetry under 23&ndash;24 concurrent agents, aggregate decode has been observed climbing to <strong>~450&ndash;480 tok/s</strong> &mdash; nearly 10&times; the ~50 tok/s single-stream rate. That scaling is the whole point: one low-end PCIe card serving many agents at once, not one user at a time.</p>
   </div>
 </section>
 
 <section id="map" data-label="Component map">
   <div class="reveal-stagger">
-    <div class="eyebrow">FAE COMMAND CENTER, MAPPED</div>
+    <div class="eyebrow">REFERENCE WORKFLOW, MAPPED</div>
     <h2>One model. Many agents. One box.</h2>
     <p class="lead">Ten background agents, four live ingestors, three frontends, two databases. One LLM endpoint. One physical machine.</p>
     <table>
@@ -220,10 +234,10 @@ pre .c{color:#6b7075}
         <tr><td>SFSyncAgent</td><td>Background</td><td>Every 30 min</td></tr>
         <tr><td>ProactiveAlertAgent</td><td>Background</td><td>Every 15 min</td></tr>
         <tr><td>CompetitiveG2Agent</td><td>Background</td><td>Every 14 days</td></tr>
-        <tr><td>brain_verify loop</td><td>Continuous</td><td>24 in flight at all times</td></tr>
-        <tr><td>kb_synth loop</td><td>Continuous</td><td>Single writer to brain.db</td></tr>
-        <tr><td>meeting_harvest (Whisper)</td><td>Ingestor</td><td>Bounded slice per cycle</td></tr>
-        <tr><td>sharepoint_fs_ingest</td><td>Ingestor</td><td>12 parallel workers</td></tr>
+        <tr><td>verify_worker loop</td><td>Continuous</td><td>24 in flight at all times</td></tr>
+        <tr><td>kb_synth loop</td><td>Continuous</td><td>Single writer to the synthesis store</td></tr>
+        <tr><td>meeting_ingest (speech preprocessor)</td><td>Ingestor</td><td>Bounded slice per cycle</td></tr>
+        <tr><td>doc_fs_ingest</td><td>Ingestor</td><td>12 parallel workers</td></tr>
         <tr><td>ingest_email / ingest_teams / ingest_net</td><td>Ingestor</td><td>Continuous</td></tr>
         <tr><td>telegram_bot &middot; teams_claude_bridge &middot; server.py &middot; Gradio app.py</td><td>Frontend</td><td>Always on</td></tr>
       </tbody>
@@ -248,17 +262,17 @@ pre .c{color:#6b7075}
 <section id="valueprop" data-label="Value prop">
   <div class="reveal-stagger">
     <div class="eyebrow">WHY THIS HARDWARE, FOR THIS WORKLOAD</div>
-    <h2>R9700 plus Genoa-X is the agentic value play.</h2>
+    <h2>R9700 plus Genoa is the agentic value play.</h2>
     <p class="lead">Agentic AI is not the same problem as serving a chatbot. The right card is not the biggest card &mdash; it is the card that holds a quantized MoE with 32k context, runs continuous batching at full duty cycle, and stays on your desk. The right CPU is not the most cores &mdash; it is the one with enough CCDs to give each agent class its own isolated home.</p>
     <div class="row">
       <div class="card"><span class="lbl">R9700, 32 GB</span><span class="num">$1 GPU</span><div class="desc">One workstation card holds the model, KV cache for 49k requests, prefix cache for the brain, and 32k context. No second card. No second box.</div></div>
-      <div class="card"><span class="lbl">Continuous batching</span><span class="num">20+ in 1</span><div class="desc">Twenty agents and three frontends fold into one vLLM rolling forward pass. The card sees one busy queue, never twenty idle ones.</div></div>
+      <div class="card"><span class="lbl">Continuous batching</span><span class="num">20+ in 1</span><div class="desc">Twenty agents and three frontends fold into one vLLM rolling forward pass. Aggregate decode scales from ~50 tok/s single-stream up to ~450&ndash;480 tok/s at 23&ndash;24 concurrent agents on this one R9700.</div></div>
       <div class="card"><span class="lbl">Privacy boundary</span><span class="num">Local</span><div class="desc">Customer-bucket data never leaves the card. One router switch decides local vs gateway. Public clouds cannot offer this.</div></div>
-      <div class="card"><span class="lbl">EPYC 9684X</span><span class="num">12 CCDs</span><div class="desc">Each agent class lives on its own CCD with sticky L3. Whisper, brain synth, and four ingest classes never fight for cache.</div></div>
-      <div class="card"><span class="lbl">CPU headroom</span><span class="num">87%</span><div class="desc">p95 agentic load is 13% of 96 cores. The other 87% is reserved for the bursty work (Whisper batches, SharePoint sync) so nothing blocks the GPU pipeline.</div></div>
+      <div class="card"><span class="lbl">Genoa-class EPYC</span><span class="num">12 CCDs</span><div class="desc">Each agent class lives on its own CCD with sticky L3. the synthesis worker, the speech preprocessor, and four ingester classes never fight for cache.</div></div>
+      <div class="card"><span class="lbl">CPU does the rest</span><span class="num">end-to-end</span><div class="desc">Ingestion, embeddings, BM25, scheduling, FUSE, speech preprocessing, document sync &mdash; everything that is not the model itself runs on the EPYC. The 87% capacity beyond steady-state is reserved for the bursts that keep the GPU fed.</div></div>
       <div class="card"><span class="lbl">Memory bandwidth</span><span class="num">755 GB</span><div class="desc">12-channel DDR5 keeps embedding, JSON parse, and SQLite WAL out of the way of inference. Memory is not the bottleneck on either side of PCIe.</div></div>
     </div>
-    <div class="callout"><strong>The card you can buy is the card the workload was designed for.</strong> Parts 1-6 measured what a 32 GB RDNA4 part can do. This workload uses every dimension of that headroom and still has the privacy story a Field-AI box needs.</div>
+    <div class="callout"><strong>The card you can buy is the card the workload was designed for.</strong> Parts 1-6 measured what a 32 GB RDNA4 part can do. This workload uses every dimension of that headroom and still has the privacy story a agentic AI node needs.</div>
   </div>
 </section>
 
@@ -266,7 +280,7 @@ pre .c{color:#6b7075}
   <div class="reveal-stagger">
     <div class="eyebrow">UP NEXT</div>
     <h2>Where the work actually runs.</h2>
-    <p class="lead">Part 8 takes the five-phase map and pins each phase to silicon. Where the EPYC CPU does its job. Where the R9700 does its job. Why this split is what makes a Field-AI box buildable today.</p>
+    <p class="lead">Part 8 takes the five-phase map and pins each phase to silicon. Where the EPYC CPU does its job. Where the R9700 does its job. Why this split is what makes a agentic AI node buildable today.</p>
     <div class="row">
       <div class="card"><span class="lbl">Part 8</span><span class="num">R9700</span><div class="desc">Does the synthesis. The model is the writer.</div></div>
       <div class="card"><span class="lbl">Part 8</span><span class="num">EPYC</span><div class="desc">Runs the agents. The CPU is the conductor.</div></div>

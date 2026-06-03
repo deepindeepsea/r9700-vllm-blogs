@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R9700 + vLLM — A field series on agentic AI on a low-end PCIe card</title>
+<style>
+  :root {
+    --bg:#0b0c10; --panel:#13151c; --ink:#e8eaed; --mute:#8a8f98;
+    --accent:#ed1c24; --accent2:#ff8a3d; --line:#23262d;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    line-height:1.55; -webkit-font-smoothing:antialiased; }
+  a { color:var(--ink); text-decoration:none; }
+  .wrap { max-width:980px; margin:0 auto; padding:64px 28px 96px; }
+  header { border-bottom:1px solid var(--line); padding-bottom:36px; margin-bottom:48px; }
+  .eyebrow { color:var(--accent); font-size:13px; letter-spacing:.18em; text-transform:uppercase;
+    font-weight:700; margin-bottom:14px; }
+  h1 { font-size:44px; line-height:1.15; margin:0 0 18px; font-weight:800; letter-spacing:-.01em; }
+  .sub { color:var(--mute); font-size:18px; max-width:740px; }
+  .byline { color:var(--mute); font-size:13px; margin-top:18px; }
+  .byline strong { color:var(--ink); }
+
+  .group-label { color:var(--accent2); font-size:12px; letter-spacing:.16em; text-transform:uppercase;
+    font-weight:700; margin:40px 0 14px; }
+  .grid { display:grid; gap:14px; }
+
+  .card { display:block; background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:20px 22px; transition:border-color .15s, transform .15s; }
+  .card:hover { border-color:var(--accent); transform:translateY(-1px); }
+  .card .num { color:var(--accent); font-size:12px; font-weight:700; letter-spacing:.14em; }
+  .card .title { font-size:18px; font-weight:700; margin:4px 0 6px; }
+  .card .desc { color:var(--mute); font-size:14.5px; }
+
+  .hint { margin-top:56px; padding:22px 24px; border:1px dashed var(--line);
+    border-radius:10px; color:var(--mute); font-size:14px; }
+  .hint strong { color:var(--ink); }
+
+  footer { margin-top:48px; padding-top:24px; border-top:1px solid var(--line);
+    color:var(--mute); font-size:13px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">A field series</div>
+  <h1>R9700 + vLLM: getting real agentic AI work out of a low-end PCIe card.</h1>
+  <p class="sub">Nine parts (so far) on bringing up an AMD Radeon AI PRO R9700 alongside a Gen&nbsp;4 EPYC host, picking a runtime, and running a multi-agent workload end&#8209;to&#8209;end &mdash; the same card serving ~50&nbsp;tok/s for one user scales to ~450&ndash;480&nbsp;tok/s aggregate under 23&ndash;24 concurrent agents.</p>
+  <p class="byline"><strong>AMD Field AI Enthusiast</strong> &middot; by Pradeep Nallimelli &middot; June 2026</p>
+</header>
+
+<div class="group-label">Block I &middot; The card and the runtimes</div>
+<div class="grid">
+  <a class="card" href="part1-r9700-meet-the-card.html">
+    <div class="num">PART 1</div>
+    <div class="title">Meet the card &mdash; setting up LLMs on a 32&nbsp;GB workstation GPU.</div>
+    <div class="desc">Why the R9700 is interesting, what 32&nbsp;GB of GDDR6 actually fits, and the first working vLLM bring-up on ROCm 7.2.1.</div>
+  </a>
+  <a class="card" href="part2-r9700-moe-and-concurrency.html">
+    <div class="num">PART 2</div>
+    <div class="title">Mixture of Experts and the concurrency question.</div>
+    <div class="desc">Dense 14B vs. MoE 30B-A3B on the same card: why an MoE is 6.8&times; faster single-stream and how vLLM's batching changes the math.</div>
+  </a>
+  <a class="card" href="part3-r9700-the-vulkan-plot-twist.html">
+    <div class="num">PART 3</div>
+    <div class="title">The Vulkan plot twist.</div>
+    <div class="desc">llama.cpp on Vulkan hits 108&nbsp;tok/s decode on the same model that vLLM Triton does ~50 &mdash; the unexpected runtime story on RDNA4.</div>
+  </a>
+  <a class="card" href="part4-r9700-hip-vs-vulkan.html">
+    <div class="num">PART 4</div>
+    <div class="title">HIP vs. Vulkan &mdash; the split decision.</div>
+    <div class="desc">Same model, same card, two backends: Vulkan wins decode (108 vs 92&nbsp;t/s), HIP wins prefill (3,491 vs 2,822&nbsp;t/s). Pick by workload.</div>
+  </a>
+  <a class="card" href="part5-r9700-sglang-build-journey.html">
+    <div class="num">PART 5</div>
+    <div class="title">Bringing SGLang up on RDNA4.</div>
+    <div class="desc">Full kernel stack built end-to-end for gfx1201 (sgl_kernel, AWQ GEMV, wvSplitK INT4 MoE). What broke, what fixed it.</div>
+  </a>
+  <a class="card" href="part6-r9700-sglang-bench-and-verdict.html">
+    <div class="num">PART 6</div>
+    <div class="title">SGLang bench and the cross-runtime verdict.</div>
+    <div class="desc">vLLM vs llama.cpp vs SGLang on one card, one model &mdash; the three-way comparison and why you'd pick each.</div>
+  </a>
+</div>
+
+<div class="group-label">Block II &middot; A real agentic workload, end-to-end</div>
+<div class="grid">
+  <a class="card" href="part7-r9700-what-is-agentic-ai.html">
+    <div class="num">PART 7</div>
+    <div class="title">What is agentic AI? End-to-end on one R9700.</div>
+    <div class="desc">The Sense&middot;Synthesize&middot;Verify&middot;Decide&middot;Act loop, why this is a multi-agent workload, and why vLLM was chosen for it.</div>
+  </a>
+  <a class="card" href="part8-r9700-r9700-does-synthesis-cpu-runs-agents.html">
+    <div class="num">PART 8</div>
+    <div class="title">R9700 does synthesis, EPYC runs the agents.</div>
+    <div class="desc">Division of labor: the GPU streams tokens, the CPU does ingestion, embeddings, orchestration and pre/post-processing &mdash; constantly.</div>
+  </a>
+  <a class="card" href="part9-r9700-four-days-49k-requests.html">
+    <div class="num">PART 9</div>
+    <div class="title">Four days, 49,288 requests, 0 errors.</div>
+    <div class="desc">Live telemetry from a continuously-running pipeline: 35.24M prompt + 8.73M decode tokens, 368&nbsp;ms TTFT, what held and what didn't.</div>
+  </a>
+</div>
+
+<div class="group-label">Coming next</div>
+<div class="grid">
+  <div class="card" style="opacity:.7; cursor:default;">
+    <div class="num">PART 10 &middot; IN PROGRESS</div>
+    <div class="title">Mapping the datacenter agentic blueprint onto one node.</div>
+    <div class="desc">How the eight-stage reference architecture (Gateway &rarr; Stream) collapses cleanly onto a single R9700 + EPYC reference.</div>
+  </div>
+  <div class="card" style="opacity:.55; cursor:default;">
+    <div class="num">PART 11+ &middot; PLANNED</div>
+    <div class="title">Where the silicon actually spends its time.</div>
+    <div class="desc">CPU profiling (perf, uProf, PerfXpert), GPU profiling (rocprof, omniperf), and per-stage end-to-end timing across the loop.</div>
+  </div>
+</div>
+
+<div class="hint">
+  <strong>Reading order:</strong> Parts&nbsp;1&ndash;6 are the runtime bring-up story &mdash; read in order if you care about how the card got chosen and tuned. Parts&nbsp;7&ndash;9 are the agentic workload story and stand alone if that is what you came for. Each part has a sticky sidebar to jump within sections.
+</div>
+
+<footer>
+  <span>&copy; 2026 Pradeep Nallimelli &middot; AMD Field AI Enthusiast</span>
+  <span><a href="README.md" style="color:var(--mute);">repo README</a></span>
+</footer>
+
+</div>
+</body>
+</html>

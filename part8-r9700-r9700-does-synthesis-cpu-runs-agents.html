@@ -128,11 +128,11 @@ pre .c{color:#6b7075}
   <div class="reveal-stagger">
     <div class="eyebrow">AMD Field AI Enthusiast &middot; by Pradeep Nallimelli &middot; Part 8 of 9 &middot; June 2026</div>
     <h1>R9700 does synthesis.<br>EPYC runs the agents.</h1>
-    <p class="lead">The split is the design. One GPU at the back of the room writing structured knowledge. One EPYC Genoa-X CPU at the front doing every other job &mdash; ingestion, orchestration, transcription, embedding cache, schedule, dispatch &mdash; with agent processes pinned to specific CCDs so they never collide. Here is how the workload is divided in practice.</p>
+    <p class="lead">The split is the design. One GPU at the back of the room writing structured knowledge. One EPYC Genoa CPU at the front doing every other job &mdash; ingestion, orchestration, transcription, embedding cache, schedule, dispatch &mdash; with agent processes pinned to specific CCDs so they never collide. Here is how the workload is divided in practice.</p>
     <div class="row">
       <div class="card"><span class="lbl">GPU role</span><span class="num">Synth</span><div class="desc">All LLM tokens: summarize, verify, route, decide</div></div>
       <div class="card"><span class="lbl">CPU role</span><span class="num">Orchestrate</span><div class="desc">Ingest, schedule, transcribe, embed, act, persist</div></div>
-      <div class="card"><span class="lbl">Host load</span><span class="num">p50 0.3%</span><div class="desc">96-core EPYC 9684X sits mostly idle. p95 hits 12.9% during agent batches.</div></div>
+      <div class="card"><span class="lbl">CPU role</span><span class="num">always on</span><div class="desc">Genoa EPYC drives ingestion, embedding, scheduling, orchestration, speech and document pre/post-processing. Host load measures only the steady-state slice (p50 0.3%, p95 12.9% during batches) &mdash; the rest is reserved capacity for bursts, not wasted silicon.</div></div>
     </div>
     <div class="footer">Continues from <a href="part7-r9700-what-is-agentic-ai.html">Part 7 &mdash; What is agentic AI</a>. Bench window: 2026-05-31 to 2026-06-03. Author: Pradeep Nallimelli.</div>
   </div>
@@ -147,11 +147,11 @@ pre .c{color:#6b7075}
       <thead><tr><th>Step</th><th>What it added</th><th>Lesson</th></tr></thead>
       <tbody>
         <tr><td>1</td><td>vLLM + Qwen3-30B-A3B-AWQ on R9700</td><td>MoE first (Part 2). Dense 14B was 6.8x slower. Start with the right shape.</td></tr>
-        <tr><td>2</td><td>Outlook + Teams + SharePoint ingestors</td><td>Get the data in before you teach the model what to do with it.</td></tr>
-        <tr><td>3</td><td>knowledge.db (RAG) + brain.db (synth)</td><td>Two layers. RAG for retrieval; synth for compressed wisdom. Different write patterns.</td></tr>
+        <tr><td>2</td><td>Outlook + Teams + shared documents ingestors</td><td>Get the data in before you teach the model what to do with it.</td></tr>
+        <tr><td>3</td><td>the retrieval store (RAG) + the synthesis store (synth)</td><td>Two layers. RAG for retrieval; synth for compressed wisdom. Different write patterns.</td></tr>
         <tr><td>4</td><td>10 background agents</td><td>Schedule first, intelligence second. A cron with an LLM behind it is still mostly cron.</td></tr>
         <tr><td>5</td><td>Telegram + Teams + Gradio frontends</td><td>Meet the user where they already are. Three frontends share one router (agent.py).</td></tr>
-        <tr><td>6</td><td>brain_verify continuous fact-check</td><td>The hard one. Every claim is re-scored. Weak rows go back through synth with the correction injected.</td></tr>
+        <tr><td>6</td><td>verify_worker continuous fact-check</td><td>The hard one. Every claim is re-scored. Weak rows go back through synth with the correction injected.</td></tr>
       </tbody>
     </table>
   </div>
@@ -165,31 +165,32 @@ pre .c{color:#6b7075}
     <div class="chart-wrap">
       <h3>R9700 request mix &mdash; 4-day production window</h3>
       <canvas id="mix2"></canvas>
-      <div class="src">Source: agent_runs.db + brain_verify logs + vLLM request_success_total. Bucket attribution by request prefix sampled across the window.</div>
+      <div class="src">Source: agent_runs.db + verify_worker logs + vLLM request_success_total. Bucket attribution by request prefix sampled across the window.</div>
     </div>
     <table>
       <thead><tr><th>Flow</th><th>Calls per day</th><th>Avg prompt</th><th>Avg decode</th></tr></thead>
       <tbody>
-        <tr><td>kb_synth (write to brain.db)</td><td class="hi">~6,800</td><td>~900 tok</td><td>~280 tok</td></tr>
-        <tr><td>brain_verify (fact-check)</td><td class="hi">~3,200</td><td>~620 tok</td><td>~140 tok</td></tr>
+        <tr><td>kb_synth (write to the synthesis store)</td><td class="hi">~6,800</td><td>~900 tok</td><td>~280 tok</td></tr>
+        <tr><td>verify_worker (fact-check)</td><td class="hi">~3,200</td><td>~620 tok</td><td>~140 tok</td></tr>
         <tr><td>agent.py (user/agent Q&amp;A, tool-calling)</td><td class="hi">~2,300</td><td>~520 tok</td><td>~120 tok</td></tr>
       </tbody>
     </table>
-    <div class="callout"><strong>The privacy boundary lives here.</strong> Customer-bucket rows route to R9700 local only. Competitive and spec-bucket rows can route to the AMD Enterprise gateway (public oracle, gpt-4.1). The router is one switch in <code>brain_verify.py</code>. Customer data never leaves the box.</div>
+    <div class="callout"><strong>One card. Many agents. Real throughput.</strong> Single-stream decode on this R9700 is ~50 tok/s. Under 23&ndash;24 concurrent agents firing through vLLM, aggregate decode has been observed at <strong>~450&ndash;480 tok/s</strong> &mdash; nearly 10&times; the single-user rate. The card scales because the workload is multi-agent by design, and a multi-agent workload is what justifies a GPU on the desk in the first place.</div>
+    <div class="callout"><strong>The privacy boundary lives here.</strong> Customer-bucket rows route to R9700 local only. Competitive and spec-bucket rows can route to the AMD Enterprise gateway (public oracle, gpt-4.1). The router is one switch in <code>verify_worker.py</code>. Customer data never leaves the box.</div>
   </div>
 </section>
 
 <section id="cpu-role" data-label="CPU role">
   <div class="reveal-stagger">
     <div class="eyebrow">EPYC: THE CONDUCTOR</div>
-    <h2>Genoa-X sits idle, then bursts.</h2>
+    <h2>Genoa CPU: the conductor and the burst engine.</h2>
     <p class="lead">96 cores. 12 CCDs. 755 GB DDR5. 2.5 days of telemetry says p50 CPU usage is 0.3% and p95 is 12.9%. The CPU does its work in short, intense bursts &mdash; not because it is overprovisioned, but because that is the shape of agentic orchestration when each component is pinned to its own CCD.</p>
     <div class="chart-wrap">
       <h3>Host CPU usage by component class &mdash; p50 vs p95 across 92,768 samples</h3>
       <canvas id="cpu"></canvas>
-      <div class="src">Source: /tmp/agentic_perf.csv on Genoa-X. 92,768 rows @ 2-second interval, 2026-05-31 18:38 to 2026-06-03 00:31 UTC.</div>
+      <div class="src">Source: /tmp/agentic_perf.csv on the host. 92,768 rows @ 2-second interval, 2026-05-31 18:38 to 2026-06-03 00:31 UTC.</div>
     </div>
-    <p>The "agentic_pct" lane sums every Python process tied to the Command Center: inference client, agents, ingestors, mounts, serving, dashboards. Its p95 is 13.4%, meaning even in the busiest 5% of two-second windows, the agentic stack uses less than one-eighth of the EPYC's 96 cores. The rest is headroom for Whisper transcription, embedding builds, and SharePoint mount I/O.</p>
+    <p>The "agentic_pct" lane sums every Python process tied to the reference workflow: inference client, agents, ingestors, mounts, serving, dashboards. Its p95 is 13.4%, meaning the steady-state agentic stack is lean by design. The remaining capacity is not wasted &mdash; it is reserved for the bursts that hit when speech preprocessing, embedding builds, or shared document mount I/O fire. The CPU is constantly working; the steady-state number just measures the quiet between bursts.</p>
   </div>
 </section>
 
@@ -199,10 +200,10 @@ pre .c{color:#6b7075}
     <h2>Three workloads pin the cores hot.</h2>
     <p class="lead">Most of the day the CPU is at sub-percent load. Three things change that &mdash; and all three exist precisely because they are wrong to put on the GPU.</p>
     <div class="row">
-      <div class="card"><span class="lbl">Whisper batch</span><span class="num">533%</span><div class="desc">meeting_harvest whisper --threads 24: faster-whisper transcription of meeting audio. CPU-only, peaks at &gt;500% of one core.</div></div>
-      <div class="card"><span class="lbl">brain_verify</span><span class="num">39.5%</span><div class="desc">24 parallel HTTP clients pipelining verification calls into vLLM. CPU-bound on JSON parse + retry logic.</div></div>
-      <div class="card"><span class="lbl">SharePoint ingest</span><span class="num">12 workers</span><div class="desc">sharepoint_fs_ingest. Streams files from SP, hashes, dedups, queues for embedding. Memory-bandwidth bound.</div></div>
-      <div class="card"><span class="lbl">rclone mount</span><span class="num">4.9%</span><div class="desc">sharepoint_csp FUSE mount with VFS cache. Steady-state I/O cost of having SharePoint look like a local disk.</div></div>
+      <div class="card"><span class="lbl">Speech preprocessor batch</span><span class="num">533%</span><div class="desc">meeting_ingest stt --threads 24: faster-stt transcription of meeting audio. CPU-only, peaks at &gt;500% of one core.</div></div>
+      <div class="card"><span class="lbl">verify_worker</span><span class="num">39.5%</span><div class="desc">24 parallel HTTP clients pipelining verification calls into vLLM. CPU-bound on JSON parse + retry logic.</div></div>
+      <div class="card"><span class="lbl">shared documents ingest</span><span class="num">12 workers</span><div class="desc">doc_fs_ingest. Streams files from SP, hashes, dedups, queues for embedding. Memory-bandwidth bound.</div></div>
+      <div class="card"><span class="lbl">rclone mount</span><span class="num">4.9%</span><div class="desc">doc_fs_mount FUSE mount with VFS cache. Steady-state I/O cost of having shared documents look like a local disk.</div></div>
     </div>
   </div>
 </section>
@@ -211,26 +212,26 @@ pre .c{color:#6b7075}
   <div class="reveal-stagger">
     <div class="eyebrow">CCD AFFINITY: WHY THE CPU FEELS QUIET</div>
     <h2>Each agent class lives on its own CCD.</h2>
-    <p class="lead">EPYC 9684X is one socket, 96 cores, organized as 12 CCDs of 8 cores each, with 12 separate 96 MB L3 slices. The Command Center pins each agent class to a specific core band &mdash; which lines up with CCD boundaries &mdash; so heavy loops keep their L3 hot and never thrash on a neighbor's cache.</p>
+    <p class="lead">Genoa-class EPYC is one socket, 96 cores, organized as 12 CCDs of 8 cores each, with 12 separate 96 MB L3 slices. The reference workflow pins each agent class to a specific core band &mdash; which lines up with CCD boundaries &mdash; so heavy loops keep their L3 hot and never thrash on a neighbor's cache.</p>
     <table>
       <thead><tr><th>Component</th><th>Core band</th><th>CCDs</th><th>Why this band</th></tr></thead>
       <tbody>
-        <tr><td>brain synth burst (kb_synth)</td><td class="hi">0-31</td><td>0-3</td><td>4 CCDs = 384 MB sticky L3 for the big context windows fed to vLLM</td></tr>
-        <tr><td>ingest_teams</td><td class="hi">32-39</td><td>4</td><td>Isolated CCD so Teams polling never blocks brain synth</td></tr>
+        <tr><td>synthesis burst (kb_synth)</td><td class="hi">0-31</td><td>0-3</td><td>4 CCDs = 384 MB sticky L3 for the big context windows fed to vLLM</td></tr>
+        <tr><td>ingest_teams</td><td class="hi">32-39</td><td>4</td><td>Isolated CCD so Teams polling never blocks synthesis worker</td></tr>
         <tr><td>ingest_email</td><td class="hi">40-47</td><td>5</td><td>Outlook fetch + classification on its own L3, no contention</td></tr>
-        <tr><td>meeting_harvest (Whisper)</td><td class="hi">48-79</td><td>6-9</td><td>4 CCDs because faster-whisper bursts to 533% of one core</td></tr>
-        <tr><td>sharepoint_fs_ingest (Confluence)</td><td class="hi">80-87</td><td>10</td><td>FUSE + dedup workers, far from the brain synth pool</td></tr>
+        <tr><td>meeting_ingest (speech preprocessor)</td><td class="hi">48-79</td><td>6-9</td><td>4 CCDs because faster-stt bursts to 533% of one core</td></tr>
+        <tr><td>doc_fs_ingest (documentation source)</td><td class="hi">80-87</td><td>10</td><td>FUSE + dedup workers, far from the synthesis worker pool</td></tr>
         <tr><td>DigestAgent</td><td class="hi">88-91</td><td>11</td><td>Daily 9am scheduled work, no need for a full CCD</td></tr>
       </tbody>
     </table>
-    <p>The mapping lives in <code>affinity.py</code> as named bands (env-overridable, clamped to online CPUs). Every ingester calls <code>pin("teams")</code> or <code>pin("email")</code> at start, which does three things in one shot:</p>
-    <pre><span class="c"># affinity.py - one call per ingester at startup</span>
+    <p>The mapping lives in <code>a small affinity helper</code> as named bands (env-overridable, clamped to online CPUs). Every ingester calls <code>pin("teams")</code> or <code>pin("email")</code> at start, which does three things in one shot:</p>
+    <pre><span class="c"># a small affinity helper - one call per ingester at startup</span>
 os.sched_setaffinity(0, set(cores))     <span class="c"># pin process to band</span>
 os.environ.setdefault("OMP_NUM_THREADS",    str(len(cores)))
 os.environ.setdefault("OPENBLAS_NUM_THREADS", str(len(cores)))
 os.environ.setdefault("MKL_NUM_THREADS",    str(len(cores)))</pre>
     <p>Capping the BLAS thread env vars to the band width is the unsung optimization. Without it, OpenMP and OpenBLAS spray threads across the full 96-core socket, which destroys the L3 isolation the affinity pin just bought.</p>
-    <div class="callout"><strong>Single socket, no NUMA cross-talk.</strong> 9684X is one NUMA node so every band sees the same 755 GB of DDR5 at equal latency. The CCD pins are purely about L3 stickiness and isolation, not memory locality. On a two-socket box you would also pin to a NUMA node; here we get the benefit for free.</div>
+    <div class="callout"><strong>Single socket, no NUMA cross-talk.</strong> the Genoa EPYC used here is one NUMA node so every band sees the same 755 GB of DDR5 at equal latency. The CCD pins are purely about L3 stickiness and isolation, not memory locality. On a two-socket box you would also pin to a NUMA node; here we get the benefit for free.</div>
   </div>
 </section>
 
@@ -238,7 +239,7 @@ os.environ.setdefault("MKL_NUM_THREADS",    str(len(cores)))</pre>
   <div class="reveal-stagger">
     <div class="eyebrow">DATA SYNTHESIS, IN DETAIL</div>
     <h2>The R9700's main job is writing the brain.</h2>
-    <p class="lead">Every email, every meeting transcript, every Salesforce note becomes a row in <code>knowledge.db</code> (raw, retrievable). Then <code>kb_synth</code> pulls source rows in batches and asks the R9700 to compress them into a single high-signal row in <code>brain.db</code> &mdash; with confidence score, source links, and bucket tag. That second row is what answers questions.</p>
+    <p class="lead">Every email, every meeting transcript, every Salesforce note becomes a row in <code>the retrieval store</code> (raw, retrievable). Then <code>kb_synth</code> pulls source rows in batches and asks the R9700 to compress them into a single high-signal row in <code>the synthesis store</code> &mdash; with confidence score, source links, and bucket tag. That second row is what answers questions.</p>
     <pre><span class="c"># kb_synth single-writer loop (simplified)</span>
 while True:
     src = pending_sources(limit=24)
@@ -248,7 +249,7 @@ while True:
         brain.write(out, src_id=s.id, bucket=s.bucket,
                     confidence=score(out), source_url=s.url)
     sleep_if_idle()</pre>
-    <p>Single-writer invariant: only <code>kb_synth</code> writes to <code>brain.db</code>. Everything else &mdash; meeting harvest, ingestors, verify &mdash; writes upstream (<code>knowledge.db</code>, <code>meetings.db</code>) and lets synth pull. No write contention. No race conditions on the SQLite WAL.</p>
+    <p>Single-writer invariant: only <code>kb_synth</code> writes to <code>the synthesis store</code>. Everything else &mdash; meeting harvest, ingestors, verify &mdash; writes upstream (<code>the retrieval store</code>, <code>meetings.db</code>) and lets synth pull. No write contention. No race conditions on the SQLite WAL.</p>
   </div>
 </section>
 
@@ -256,12 +257,12 @@ while True:
   <div class="reveal-stagger">
     <div class="eyebrow">VERIFY, RANK, RE-SYNTHESIZE</div>
     <h2>Every claim is re-scored continuously.</h2>
-    <p class="lead">An agentic system that writes but never re-reads is a confident liar. brain_verify runs forever: it pulls the lowest-veracity rows, fact-checks them, and pushes weak rows back through synth with the correction injected.</p>
+    <p class="lead">An agentic system that writes but never re-reads is a confident liar. verify_worker runs forever: it pulls the lowest-veracity rows, fact-checks them, and pushes weak rows back through synth with the correction injected.</p>
     <table>
       <thead><tr><th>Step</th><th>Where it runs</th><th>Why</th></tr></thead>
       <tbody>
         <tr><td>1. Pick stale row</td><td>CPU (SQLite query)</td><td>Lowest veracity, oldest verified_at, or never-verified</td></tr>
-        <tr><td>2. Route by bucket</td><td>CPU (switch in brain_verify.py)</td><td>customer -&gt; R9700 local; competitive/spec -&gt; AMD gateway</td></tr>
+        <tr><td>2. Route by bucket</td><td>CPU (switch in verify_worker.py)</td><td>customer -&gt; R9700 local; competitive/spec -&gt; AMD gateway</td></tr>
         <tr><td>3. Fact-check call</td><td class="hi">R9700 or AMD gateway</td><td>Return JSON {veracity, verdict, correction, sources}</td></tr>
         <tr><td>4. Score + persist</td><td>CPU</td><td>UPDATE synth SET veracity_score, verified_at, evidence_json</td></tr>
         <tr><td>5. Requeue weak rows</td><td>CPU + R9700</td><td>If veracity &lt; threshold, re-synth from source with correction injected</td></tr>
@@ -275,10 +276,10 @@ while True:
   <div class="reveal-stagger">
     <div class="eyebrow">THE SPLIT THAT MAKES THIS BUILDABLE</div>
     <h2>Three rules for what goes where.</h2>
-    <p class="lead">Any agentic workload you build, on any hardware, will live or die on this allocation. Here are the three rules the Command Center follows.</p>
+    <p class="lead">Any agentic workload you build, on any hardware, will live or die on this allocation. Here are the three rules the reference workflow follows.</p>
     <div class="row">
       <div class="card"><span class="lbl">Rule 1</span><span class="num">LLM only</span><div class="desc">If it needs reasoning, summarization, or natural-language judgment, it is on the R9700. Nothing else is.</div></div>
-      <div class="card"><span class="lbl">Rule 2</span><span class="num">CPU-native</span><div class="desc">Embeddings, BM25, regex, SQL, JSON parsing, scheduling, HTTP, FUSE, Whisper. CPU is faster end-to-end than batching to GPU.</div></div>
+      <div class="card"><span class="lbl">Rule 2</span><span class="num">CPU-native</span><div class="desc">Embeddings, BM25, regex, SQL, JSON parsing, scheduling, HTTP, FUSE, the speech preprocessor. CPU is faster end-to-end than batching to GPU.</div></div>
       <div class="card"><span class="lbl">Rule 3</span><span class="num">Single writer</span><div class="desc">For every store, exactly one process writes. Everyone else reads. Eliminates 90% of "agentic AI is hard" complexity.</div></div>
     </div>
     <div class="footer">Continue to <a href="part9-r9700-four-days-49k-requests.html">Part 9 &mdash; Four days, 49,288 requests, 0 errors</a>.</div>
@@ -331,7 +332,7 @@ function initCharts(){
   const tip={backgroundColor:'#1d1f21', borderColor:teal, borderWidth:1, titleColor:teal, padding:10};
   const gY={color:'rgba(255,255,255,.05)'}, gX={display:false};
 
-new Chart(document.getElementById('mix2'),{type:'doughnut',data:{labels:['kb_synth (write brain)','brain_verify (fact-check)','agent.py (Q&A + tools)'],datasets:[{data:[6800,3200,2300],backgroundColor:[teal,tealDeep,orange],borderColor:'#131416',borderWidth:2}]},options:{plugins:{tooltip:tip,legend:{position:'bottom',labels:{padding:14}}},cutout:'55%'}});
+new Chart(document.getElementById('mix2'),{type:'doughnut',data:{labels:['kb_synth (write brain)','verify_worker (fact-check)','agent.py (Q&A + tools)'],datasets:[{data:[6800,3200,2300],backgroundColor:[teal,tealDeep,orange],borderColor:'#131416',borderWidth:2}]},options:{plugins:{tooltip:tip,legend:{position:'bottom',labels:{padding:14}}},cutout:'55%'}});
 
 const cpuLabels=['Inference client','Agents','Ingestors','Mount (rclone)','Serving','Dash + tools'];
 const p50=[0.0,0.0,0.0,0.0,0.0,0.1];
