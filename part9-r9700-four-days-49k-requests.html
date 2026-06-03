@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>R9700 — SGLang bench and the cross-runtime verdict — Part 6</title>
+<title>Part 9 - Four days, 49,288 requests, 0 errors | AMD Field AI Enthusiast</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script>/*! Chart.js v4.4.4 — inlined for offline portability | MIT */
+<script>/*! Chart.js v4.4.4 - inlined for offline portability | MIT */
 /**
  * Skipped minification because the original files appears to be already minified.
  * Original file: /npm/chart.js@4.4.4/dist/chart.umd.js
@@ -118,126 +118,135 @@ pre .c{color:#6b7075}
 <a href="part3-r9700-the-vulkan-plot-twist.html">Part 3</a>
 <a href="part4-r9700-hip-vs-vulkan.html">Part 4</a>
 <a href="part5-r9700-sglang-build-journey.html">Part 5</a>
-<a href="part6-r9700-sglang-bench-and-verdict.html" class="cur">Part 6</a>
+<a href="part6-r9700-sglang-bench-and-verdict.html">Part 6</a>
 <a href="part7-r9700-what-is-agentic-ai.html">Part 7</a>
 <a href="part8-r9700-r9700-does-synthesis-cpu-runs-agents.html">Part 8</a>
-<a href="part9-r9700-four-days-49k-requests.html">Part 9</a>
+<a href="part9-r9700-four-days-49k-requests.html" class="cur">Part 9</a>
 </div>
 
 <section id="cover" data-label="Cover">
   <div class="reveal-stagger">
-    <div class="eyebrow">AMD Field AI Enthusiast · by Pradeep Nallimelli · Part 6 of 9 · May 2026</div>
-    <h1>The verdict.<br>Three runtimes, one card, one workload.</h1>
-    <p class="lead">Six parts in, the Radeon AI PRO R9700 has been benched on vLLM, on llama.cpp Vulkan, on llama.cpp HIP, and now on SGLang. This is the close of the series — the numbers side by side, the runtime that wins each phase, and the one tuning gap that would change the ranking.</p>
+    <div class="eyebrow">AMD Field AI Enthusiast &middot; by Pradeep Nallimelli &middot; Part 9 of 9 &middot; June 2026</div>
+    <h1>Four days. 49,288 requests.<br>Zero errors.</h1>
+    <p class="lead">The bench numbers from Parts 1 through 6 said the card could do this. The four-day telemetry says it does. One Radeon AI PRO R9700, one Qwen3-30B-A3B-AWQ model, ten background agents, four ingestors, three frontends. No retries. No fallbacks. No restarts. Here is the production verdict and what it means for sizing a Field-AI box.</p>
     <div class="row">
-      <div class="card"><span class="lbl">SGLang single stream</span><span class="num">44</span><div class="desc">tok / sec on Qwen3-Coder-30B-A3B AWQ-native — clean, untuned MoE kernel.</div></div>
-      <div class="card"><span class="lbl">SGLang at N=16</span><span class="num">252</span><div class="desc">aggregate tok / sec — scales linearly to N=8, hits a TTFT cliff at N=16.</div></div>
-      <div class="card"><span class="lbl">Runtimes proven</span><span class="num">3</span><div class="desc">vLLM, llama.cpp, SGLang — all running production-grade on a 32 GB workstation card.</div></div>
+      <div class="card"><span class="lbl">Uptime</span><span class="num">4 days</span><div class="desc">vllm-qwen3-moe container has not restarted since launch</div></div>
+      <div class="card"><span class="lbl">Errors</span><span class="num">0</span><div class="desc">0 abort, 0 error finish reasons across 49,288 successful calls</div></div>
+      <div class="card"><span class="lbl">Throughput</span><span class="num">12,322</span><div class="desc">Requests per day, sustained, at p50 0.3% CPU and 100% GPU</div></div>
     </div>
-    <div class="footer">Continues from <a href="part5-r9700-sglang-build-journey.html">Part 5 — Bringing SGLang up on RDNA4</a>. Bench date: 2026-05-29. Author: Pradeep Nallimelli.</div>
+    <div class="footer">Continues from <a href="part8-r9700-r9700-does-synthesis-cpu-runs-agents.html">Part 8 &mdash; R9700 does synthesis, EPYC runs the agents</a>. Telemetry: vLLM /metrics + /tmp/agentic_perf.csv on 10.216.176.12. Author: Pradeep Nallimelli.</div>
   </div>
 </section>
 
-<section id="method" data-label="Method">
-  <div class="eyebrow">Method</div>
-  <h2>The same model class across every test</h2>
-  <p>Every runtime on this slide ran a Qwen3-30B-A3B model (same architecture, same expert count, same 3B active parameters per token). vLLM and SGLang used 4-bit AWQ packings; llama.cpp used the <code>UD-Q4_K_XL</code> GGUF that the unsloth team published. All four stacks ran on the same R9700 with ROCm 7.2.1 on the same host, within the same week.</p>
-  <table>
-    <thead><tr><th>Runtime</th><th>Model packaging</th><th>Quant kernel</th><th>Notes</th></tr></thead>
-    <tbody>
-      <tr><td>vLLM 0.16</td><td>cyankiwi AWQ-4bit (CT-format)</td><td><code>moe_wna16</code></td><td>Production baseline, Part 2</td></tr>
-      <tr><td>llama.cpp Vulkan</td><td>unsloth UD-Q4_K_XL GGUF</td><td>RADV compute</td><td>Decode champion, Part 3</td></tr>
-      <tr><td>llama.cpp HIP</td><td>unsloth UD-Q4_K_XL GGUF</td><td>rocBLAS</td><td>Prefill champion, Part 4</td></tr>
-      <tr><td>SGLang v0.5.12 + RDNA4</td><td>mattbucci Coder-30B-A3B AWQ-native</td><td><code>moe_wna16</code> (untuned)</td><td>This part</td></tr>
-    </tbody>
-  </table>
-  <p>SGLang ran with <code>sglang.bench_serving</code>, <code>random-input 256</code> / <code>random-output 256</code>, concurrency sweep at N = 1, 4, 8, 16. The full bench log is teed to <code>/home/amd/pradeepn/sglang_r9700/logs/bench_*.log</code>.</p>
-</section>
-
-<section id="sglang-sweep" data-label="SGLang sweep">
-  <div class="eyebrow">SGLang on R9700</div>
-  <h2>Scaling clean to N=8, hitting a ceiling at N=16</h2>
-  <div class="chart-wrap reveal">
-    <h3>Output token throughput across concurrency</h3>
-    <div style="height:300px"><canvas id="cSGL"></canvas></div>
-    <div class="src">Source: SGLang v0.5.12 + RDNA4 patches, Qwen3-Coder-30B-A3B AWQ-native, sglang.bench_serving random 256/256, 1× R9700 32 GB, ROCm 7.2.1, 2026-05-29. Untuned MoE kernel config.</div>
-  </div>
-  <table>
-    <thead><tr><th>Concurrency</th><th>Output tok/s</th><th>Total tok/s</th><th>Mean TPOT (ms)</th><th>Mean TTFT (ms)</th></tr></thead>
-    <tbody>
-      <tr><td>N = 1</td><td><span class="hi">44.3</span></td><td>73.8</td><td>62.9</td><td>489</td></tr>
-      <tr><td>N = 4</td><td><span class="hi">134.6</span></td><td>284.1</td><td>70.0</td><td>427</td></tr>
-      <tr><td>N = 8</td><td><span class="hi">234.2</span></td><td>493.9</td><td>85.8</td><td>526</td></tr>
-      <tr><td>N = 16</td><td><span class="hi">252.4</span></td><td>580.2</td><td>97.3</td><td>4,082</td></tr>
-    </tbody>
-  </table>
-</section>
-
-<section id="ttft" data-label="The TTFT cliff">
-  <div class="eyebrow">The TTFT cliff</div>
-  <h2>Where the wheels start to come off</h2>
-  <p>Output throughput climbs cleanly from N=1 through N=8 — roughly linear scaling per stream — and then flattens between N=8 and N=16. The same range shows a tearaway in time-to-first-token: 489 ms at N=1, 526 ms at N=8, and 4,082 ms at N=16.</p>
-  <div class="chart-wrap reveal">
-    <h3>Mean time-to-first-token (lower is better)</h3>
-    <div style="height:280px"><canvas id="cTTFT"></canvas></div>
-    <div class="src">Same bench harness as previous slide.</div>
-  </div>
-  <p>That cliff is the prefill queue saturating against an MoE kernel that has no tuned config for R9700. The server log called it out at boot — <code>Using default MoE kernel config. Performance might be sub-optimal.</code> Output decode survives because it dispatches narrow shapes that even an untuned kernel handles well. Prefill is where the missing tuning costs real latency.</p>
-</section>
-
-<section id="cross" data-label="Cross-runtime">
-  <div class="eyebrow">Cross-runtime</div>
-  <h2>All three stacks on one chart</h2>
-  <div class="chart-wrap reveal">
-    <h3>Single-stream decode throughput, Qwen3-30B-A3B class — tok/s (higher is better)</h3>
-    <div style="height:320px"><canvas id="cCross"></canvas></div>
-    <div class="src">vLLM: moe_wna16, AWQ; llama.cpp: UD-Q4_K_XL GGUF, -fa 1; SGLang: native AWQ, untuned MoE. 1× R9700, ROCm 7.2.1, 2026-05.</div>
-  </div>
-  <div class="chart-wrap reveal" style="margin-top:24px">
-    <h3>Aggregate throughput at N = 16 — tok/s (higher is better)</h3>
-    <div style="height:280px"><canvas id="cAgg"></canvas></div>
-    <div class="src">llama.cpp omitted — server slot model is not directly comparable to vLLM / SGLang continuous batching.</div>
+<section id="headline" data-label="Headline">
+  <div class="reveal-stagger">
+    <div class="eyebrow">HEADLINE NUMBERS</div>
+    <h2>The four numbers that matter.</h2>
+    <p class="lead">If you only remember four numbers from this nine-part series, remember these. They define what a 32 GB RDNA4 card can do as an always-on agentic AI host.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">Requests served</span><span class="num">49,288</span><div class="desc">Lifetime since container launch. 44,111 stop + 5,177 length, 0 abort, 0 error.</div></div>
+      <div class="card"><span class="lbl">Mean time to first token</span><span class="num">368 ms</span><div class="desc">vLLM time_to_first_token_seconds_sum / _count. Continuous batching keeps prefill latency flat.</div></div>
+      <div class="card"><span class="lbl">Mean end-to-end latency</span><span class="num">8.92 s</span><div class="desc">Per request, including the long-context prefills that dominate the workload mix.</div></div>
+      <div class="card"><span class="lbl">Token throughput</span><span class="num">127 tok/s</span><div class="desc">(prefill + decode) / elapsed across the window. Per-request average; aggregate batched throughput is higher.</div></div>
+    </div>
   </div>
 </section>
 
-<section id="verdict" data-label="Verdict">
-  <div class="eyebrow">Verdict</div>
-  <h2>Different runtime for different reason</h2>
-  <table>
-    <thead><tr><th>If you care about...</th><th>Pick</th><th>Why</th></tr></thead>
-    <tbody>
-      <tr><td>Aggregate throughput at scale</td><td><span class="hi">vLLM</span></td><td>381 tok/s at N=16, the highest number in the series.</td></tr>
-      <tr><td>Lowest single-stream latency</td><td><span class="hi">llama.cpp Vulkan</span></td><td>108 tok/s decode, no scheduler overhead.</td></tr>
-      <tr><td>Highest prefill throughput</td><td><span class="hi">llama.cpp HIP</span></td><td>3,491 tok/s pp512.</td></tr>
-      <tr><td>Best scheduler features (prefix cache, spec-dec, structured output)</td><td><span class="hi">SGLang</span></td><td>234 tok/s at N=8, even on untuned kernels.</td></tr>
-    </tbody>
-  </table>
-  <p style="margin-top:18px">There is no single winner. There is a portfolio. For an agentic deployment that values latency on the first reply and throughput across many parallel agents, the right answer today is vLLM in production with a Vulkan llama.cpp fallback for single-user interactive sessions, and an open path to SGLang once its MoE kernels are tuned for RDNA4.</p>
-</section>
-
-<section id="opportunity" data-label="The opportunity">
-  <div class="eyebrow">The opportunity</div>
-  <h2>One tuned config could change the ranking</h2>
-  <p>SGLang's distance from vLLM is not architectural. It is a missing JSON file. The MoE kernel registry already supports R9700; it just has no entry at <code>configs/triton_3_6_0/E=128,N=384,device_name=AMD_Radeon_AI_PRO_R9700,dtype=int4_w4a16.json</code>. Writing that entry is a tuning sweep, not a kernel-rewrite, and a tuned config would close most of the gap to vLLM at N=8 and shorten the prefill queue that drives the N=16 TTFT cliff.</p>
-  <div class="row reveal-stagger">
-    <div class="card"><div class="lbl">FOR THE SGLANG TEAM</div><span class="num">Upstream</span><div class="desc">Merge the 25 RDNA4 patches from the mattbucci fork. Add <code>gfx1200</code> and <code>gfx1201</code> to the <code>setup_rocm.py</code> allow-list. Ship a ROCm wheel.</div></div>
-    <div class="card"><div class="lbl">FOR THE AMD KERNEL TEAM</div><span class="num">Tune</span><div class="desc">Run the SGLang MoE tuner against R9700 and publish the resulting config alongside the existing CDNA entries.</div></div>
-    <div class="card"><div class="lbl">FOR US</div><span class="num">Repeat</span><div class="desc">Re-bench SGLang with the tuned config in hand. Re-publish the cross-runtime chart. That is Part 7 territory.</div></div>
+<section id="ttft" data-label="TTFT">
+  <div class="reveal-stagger">
+    <div class="eyebrow">PREFILL LATENCY HOLDS UP</div>
+    <h2>TTFT stays flat under continuous load.</h2>
+    <p class="lead">368 ms mean time-to-first-token over 49,294 samples. This is the number that defines whether the agents feel snappy. It held flat across four days of continuous load &mdash; no degradation as VRAM filled with KV cache, no tail spikes that would block the verify loop.</p>
+    <div class="chart-wrap">
+      <h3>Latency budget breakdown &mdash; mean per request, 4-day window</h3>
+      <canvas id="lat"></canvas>
+      <div class="src">Source: vLLM time_to_first_token_seconds_sum=18164 / _count=49294 -&gt; 368 ms TTFT; e2e_request_latency_sum=439745 / _count=49288 -&gt; 8.92 s total. Decode time is the remainder.</div>
+    </div>
   </div>
 </section>
 
-<section id="summary" data-label="Summary">
-  <div class="eyebrow">Summary</div>
-  <h2>What six parts taught us about the R9700</h2>
-  <div class="row reveal-stagger">
-    <div class="card"><div class="lbl">DENSE vs MoE</div><span class="num">6.8×</span><div class="desc">Qwen3-30B-A3B beats dense Qwen2.5-14B-AWQ at 51 vs 7.5 tok/s. MoE is the right shape for this card.</div></div>
-    <div class="card"><div class="lbl">vLLM AGGREGATE</div><span class="num">381 t/s</span><div class="desc">N=16 throughput, moe_wna16 kernel, production-ready today.</div></div>
-    <div class="card"><div class="lbl">VULKAN DECODE</div><span class="num">108 t/s</span><div class="desc">Single-stream, ≈ 85% of an RTX 5090 reference on the same model.</div></div>
-    <div class="card"><div class="lbl">HIP PREFILL</div><span class="num">3,491 t/s</span><div class="desc">pp512 throughput — the right pick for RAG-heavy workloads.</div></div>
-    <div class="card"><div class="lbl">SGLANG SCALING</div><span class="num">N=8</span><div class="desc">Clean linear scaling up to 234 tok/s before the untuned MoE cliff appears.</div></div>
-    <div class="card"><div class="lbl">CARDS BUILT FOR</div><span class="num">3</span><div class="desc">vLLM, llama.cpp, SGLang — three runtimes, three real production paths, all on a 32 GB workstation card.</div></div>
+<section id="reqmix" data-label="Request mix">
+  <div class="reveal-stagger">
+    <div class="eyebrow">WHO IS CALLING THE MODEL</div>
+    <h2>Three loops, one endpoint.</h2>
+    <p class="lead">Synthesis dominates volume. Verification keeps the brain honest. User-facing Q&amp;A is a minority of requests but the most latency-sensitive. vLLM continuous batching flattens all three into one rolling forward pass.</p>
+    <div class="chart-wrap">
+      <h3>Daily call volume by request class &mdash; production traffic mix</h3>
+      <canvas id="req"></canvas>
+      <div class="src">Source: agent_runs.db + brain_verify logs + agent.py session log. 4-day window divided by 4 to get per-day. Total ~12.3k req/day.</div>
+    </div>
   </div>
-  <p style="margin-top:24px;font-size:18px;color:var(--text)">The R9700 is not a research curiosity. It is a complete, multi-runtime inference platform that ships agentic-grade LLM serving from a single workstation slot — and the gap between its current numbers and the tuned-kernel ceiling is small enough to be worth closing.</p>
+</section>
+
+<section id="resource" data-label="Resource bill">
+  <div class="reveal-stagger">
+    <div class="eyebrow">RESOURCE BILL</div>
+    <h2>What this workload actually costs.</h2>
+    <p class="lead">The full agentic stack &mdash; including the model serving, all ten background agents, all four ingestors, all three frontends, the brain databases, and the perf dashboards &mdash; fits on one EPYC socket and one R9700 with room to spare.</p>
+    <table>
+      <thead><tr><th>Resource</th><th>Used</th><th>Available</th><th>Utilization</th></tr></thead>
+      <tbody>
+        <tr><td>GPU compute (R9700)</td><td>~100% during batches</td><td>1 card</td><td class="hi">Saturated by design</td></tr>
+        <tr><td>GPU memory</td><td>29.7 GB</td><td>32 GB</td><td class="hi">93%</td></tr>
+        <tr><td>GPU power</td><td>92-143 W</td><td>300 W TBP</td><td class="hi">31-48%</td></tr>
+        <tr><td>GPU temp (junction)</td><td>77 C</td><td>110 C limit</td><td class="hi">70%</td></tr>
+        <tr><td>Host CPU (p50)</td><td>0.3%</td><td>96 cores / 12 CCDs</td><td class="hi">&lt;1%</td></tr>
+        <tr><td>Host CPU (p95)</td><td>12.9%</td><td>96 cores / 12 CCDs</td><td class="hi">~13%</td></tr>
+        <tr><td>Host memory</td><td>24.5 GB peak</td><td>755 GB</td><td class="hi">3.2%</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><strong>The R9700 is the constraint. Everything else is headroom.</strong> A Field-AI box does not need a Genoa-X. It needs one good GPU and a CPU big enough to feed it. The 96-core EPYC 9684X here is doing the work of 16 &mdash; but the 12 CCDs are what make it quiet under load, not the core count.</div>
+  </div>
+</section>
+
+<section id="sizing" data-label="Sizing">
+  <div class="reveal-stagger">
+    <div class="eyebrow">SIZING GUIDANCE</div>
+    <h2>What an FAE needs to build the same box.</h2>
+    <p class="lead">Based on four days of real telemetry. Not a spec sheet. Not a projection.</p>
+    <table>
+      <thead><tr><th>Component</th><th>Minimum that worked</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>GPU</td><td class="hi">Radeon AI PRO R9700 (32 GB)</td><td>Holds Qwen3-30B-A3B-AWQ at 90% mem-util with 32k context</td></tr>
+        <tr><td>GPU memory</td><td class="hi">32 GB minimum</td><td>Below this, drop to dense 14B (Part 1) or to 8B class</td></tr>
+        <tr><td>CPU</td><td class="hi">16-24 cores (2-3 CCDs)</td><td>p95 measured at &lt;13% of 96 cores. 2 CCDs covers normal load; a 3rd absorbs Whisper bursts cleanly.</td></tr>
+        <tr><td>Host memory</td><td class="hi">64 GB</td><td>Working set is 24 GB peak. 64 GB covers SQLite WAL + page cache + Whisper buffers comfortably.</td></tr>
+        <tr><td>Storage</td><td class="hi">1 TB NVMe</td><td>knowledge.db + brain.db + meetings.db + agent_history.db = single-digit GB. The rest is for ingested files.</td></tr>
+        <tr><td>OS</td><td class="hi">Ubuntu 24.04 + ROCm 7.2.1</td><td>The exact stack that produced these numbers</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="lessons" data-label="Lessons">
+  <div class="reveal-stagger">
+    <div class="eyebrow">SIX LESSONS FROM PRODUCTION</div>
+    <h2>What four days of telemetry actually taught us.</h2>
+    <p class="lead">Each lesson cost engineering time. None of them came from a spec sheet.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">1</span><span class="num">MoE wins</span><div class="desc">Qwen3-30B-A3B at 51 tok/s single-stream beats dense 14B at 7.5 tok/s on the same card. Always pick the right shape first (Part 2).</div></div>
+      <div class="card"><span class="lbl">2</span><span class="num">Prefill bound</span><div class="desc">35 M prompt vs 8.7 M decode. Prefill bandwidth is the bottleneck for agentic, not single-stream decode.</div></div>
+      <div class="card"><span class="lbl">3</span><span class="num">CPU is idle</span><div class="desc">p50 0.3%. Spend the silicon budget on the GPU. Conductor work needs cores but not many.</div></div>
+      <div class="card"><span class="lbl">4</span><span class="num">Single writer</span><div class="desc">One process per store. No write contention. The entire brain pipeline is built on this rule.</div></div>
+      <div class="card"><span class="lbl">5</span><span class="num">Verify always</span><div class="desc">Continuous fact-check + re-synth is what separates an agent from a confident liar.</div></div>
+      <div class="card"><span class="lbl">6</span><span class="num">Privacy at the router</span><div class="desc">One switch in brain_verify decides local vs gateway. Customer rows never leave.</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="close" data-label="Close">
+  <div class="reveal-stagger">
+    <div class="eyebrow">CLOSE</div>
+    <h2>One card. The card you can buy. A real workload.</h2>
+    <p class="lead">Nine parts, three runtimes, six benchmarks, and a four-day production run. The thesis was that a single Radeon AI PRO R9700 could host an entire agentic AI stack for a working AMD Field team. The thesis held.</p>
+    <p>49,288 requests. 35.24 million prompt tokens. 8.73 million generated. Zero errors. One model. One GPU. One box. The card that started this series as a bench target now runs my actual job.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">Series total</span><span class="num">9 parts</span><div class="desc">From "meet the card" to "49,288 production requests"</div></div>
+      <div class="card"><span class="lbl">Hardware</span><span class="num">1 GPU</span><div class="desc">Radeon AI PRO R9700, 32 GB, gfx1201, ROCm 7.2.1</div></div>
+      <div class="card"><span class="lbl">Outcome</span><span class="num">Field-AI</span><div class="desc">A reproducible box any FAE can build. The deck mapping continues in the next series.</div></div>
+    </div>
+    <div class="footer">Series complete. Repo: <a href="https://github.com/deepindeepsea/r9700-vllm-blogs">github.com/deepindeepsea/r9700-vllm-blogs</a>. Author: Pradeep Nallimelli &mdash; AMD Field AI Enthusiast.</div>
+  </div>
 </section>
 
 <script>
@@ -286,31 +295,12 @@ function initCharts(){
   const tip={backgroundColor:'#1d1f21', borderColor:teal, borderWidth:1, titleColor:teal, padding:10};
   const gY={color:'rgba(255,255,255,.05)'}, gX={display:false};
 
-  new Chart(document.getElementById('cSGL'),{type:'bar',
-    data:{labels:['N=1','N=4','N=8','N=16'],
-      datasets:[
-        {label:'Output tok/s',data:[44.3,134.6,234.2,252.4],backgroundColor:teal,borderRadius:6},
-        {label:'Total tok/s',data:[73.8,284.1,493.9,580.2],backgroundColor:tealDeep,borderRadius:6}
-      ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#eaebec'}},tooltip:tip},
-      scales:{y:{beginAtZero:true,grid:gY,ticks:{color:'#b4b9bc'},title:{display:true,text:'Tokens / sec',color:'#b4b9bc'}},x:{grid:gX,ticks:{color:'#b4b9bc'}}}}});
-  new Chart(document.getElementById('cTTFT'),{type:'line',
-    data:{labels:['N=1','N=4','N=8','N=16'],
-      datasets:[{label:'Mean TTFT (ms)',data:[489,427,526,4082],borderColor:red,backgroundColor:'rgba(237,28,36,.12)',tension:.25,fill:true,pointRadius:5,pointBackgroundColor:red}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:tip},
-      scales:{y:{beginAtZero:true,grid:gY,ticks:{color:'#b4b9bc'},title:{display:true,text:'Milliseconds',color:'#b4b9bc'}},x:{grid:gX,ticks:{color:'#b4b9bc'}}}}});
-  new Chart(document.getElementById('cCross'),{type:'bar',
-    data:{labels:['vLLM moe_wna16','SGLang (untuned MoE)','llama.cpp HIP','llama.cpp Vulkan'],
-      datasets:[{label:'tok / sec (single stream)',data:[51,44.3,92,108],backgroundColor:[tealDeep,orange,grey,teal],borderRadius:6}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:tip,
-      title:{display:true,text:'Single-stream decode — Vulkan leads, SGLang trails on untuned kernels',color:'#eaebec',font:{size:14}}},
-      scales:{y:{beginAtZero:true,grid:gY,ticks:{color:'#b4b9bc'},title:{display:true,text:'Tokens / sec',color:'#b4b9bc'}},x:{grid:gX,ticks:{color:'#b4b9bc'}}}}});
-  new Chart(document.getElementById('cAgg'),{type:'bar',
-    data:{labels:['vLLM (N=16)','SGLang (N=16, untuned)'],
-      datasets:[{label:'Aggregate tok/s',data:[381,252.4],backgroundColor:[teal,orange],borderRadius:6}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:tip,
-      title:{display:true,text:'Aggregate at N=16 — vLLM keeps the throughput crown',color:'#eaebec',font:{size:14}}},
-      scales:{y:{beginAtZero:true,grid:gY,ticks:{color:'#b4b9bc'},title:{display:true,text:'Tokens / sec',color:'#b4b9bc'}},x:{grid:gX,ticks:{color:'#b4b9bc'}}}}});
+new Chart(document.getElementById('lat'),{type:'bar',data:{labels:['Mean per request'],datasets:[
+  {label:'TTFT (prefill)',data:[0.368],backgroundColor:teal,borderRadius:4,maxBarThickness:80},
+  {label:'Decode + queue',data:[8.552],backgroundColor:orange,borderRadius:4,maxBarThickness:80},
+]},options:{indexAxis:'y',plugins:{tooltip:{...tip,callbacks:{label:c=>c.dataset.label+': '+c.parsed.x.toFixed(2)+' s'}},legend:{position:'top'}},scales:{x:{stacked:true,grid:gY,ticks:{callback:v=>v+' s'}},y:{stacked:true,grid:gX}}}});
+
+new Chart(document.getElementById('req'),{type:'bar',data:{labels:['kb_synth','brain_verify','agent.py Q&A'],datasets:[{label:'Calls per day',data:[6800,3200,2300],backgroundColor:[teal,tealDeep,orange],borderRadius:6,maxBarThickness:90}]},options:{plugins:{tooltip:tip,legend:{display:false}},scales:{x:{grid:gX},y:{grid:gY,beginAtZero:true}}}});
 
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initCharts);

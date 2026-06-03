@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>R9700 — SGLang bench and the cross-runtime verdict — Part 6</title>
+<title>Part 7 - What is agentic AI? End-to-end on one R9700 | AMD Field AI Enthusiast</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script>/*! Chart.js v4.4.4 — inlined for offline portability | MIT */
+<script>/*! Chart.js v4.4.4 - inlined for offline portability | MIT */
 /**
  * Skipped minification because the original files appears to be already minified.
  * Original file: /npm/chart.js@4.4.4/dist/chart.umd.js
@@ -118,126 +118,162 @@ pre .c{color:#6b7075}
 <a href="part3-r9700-the-vulkan-plot-twist.html">Part 3</a>
 <a href="part4-r9700-hip-vs-vulkan.html">Part 4</a>
 <a href="part5-r9700-sglang-build-journey.html">Part 5</a>
-<a href="part6-r9700-sglang-bench-and-verdict.html" class="cur">Part 6</a>
-<a href="part7-r9700-what-is-agentic-ai.html">Part 7</a>
+<a href="part6-r9700-sglang-bench-and-verdict.html">Part 6</a>
+<a href="part7-r9700-what-is-agentic-ai.html" class="cur">Part 7</a>
 <a href="part8-r9700-r9700-does-synthesis-cpu-runs-agents.html">Part 8</a>
 <a href="part9-r9700-four-days-49k-requests.html">Part 9</a>
 </div>
 
 <section id="cover" data-label="Cover">
   <div class="reveal-stagger">
-    <div class="eyebrow">AMD Field AI Enthusiast · by Pradeep Nallimelli · Part 6 of 9 · May 2026</div>
-    <h1>The verdict.<br>Three runtimes, one card, one workload.</h1>
-    <p class="lead">Six parts in, the Radeon AI PRO R9700 has been benched on vLLM, on llama.cpp Vulkan, on llama.cpp HIP, and now on SGLang. This is the close of the series — the numbers side by side, the runtime that wins each phase, and the one tuning gap that would change the ranking.</p>
+    <div class="eyebrow">AMD Field AI Enthusiast &middot; by Pradeep Nallimelli &middot; Part 7 of 9 &middot; June 2026</div>
+    <h1>What is agentic AI.<br>End-to-end, on one R9700.</h1>
+    <p class="lead">The first six parts measured the card. Parts 7 through 9 measure the workload. The FAE Command Center has been live on this single Radeon AI PRO R9700 for four days, serving real production traffic. Here is what an agentic AI workload actually is, broken into five phases, and where each phase runs.</p>
     <div class="row">
-      <div class="card"><span class="lbl">SGLang single stream</span><span class="num">44</span><div class="desc">tok / sec on Qwen3-Coder-30B-A3B AWQ-native — clean, untuned MoE kernel.</div></div>
-      <div class="card"><span class="lbl">SGLang at N=16</span><span class="num">252</span><div class="desc">aggregate tok / sec — scales linearly to N=8, hits a TTFT cliff at N=16.</div></div>
-      <div class="card"><span class="lbl">Runtimes proven</span><span class="num">3</span><div class="desc">vLLM, llama.cpp, SGLang — all running production-grade on a 32 GB workstation card.</div></div>
+      <div class="card"><span class="lbl">Workload</span><span class="num">5</span><div class="desc">Phases: Sense, Synthesize, Verify, Decide, Act</div></div>
+      <div class="card"><span class="lbl">Live requests</span><span class="num">49,288</span><div class="desc">Successful inference calls in ~4 days, 0 errors, 0 aborts</div></div>
+      <div class="card"><span class="lbl">GPU footprint</span><span class="num">1</span><div class="desc">One Radeon AI PRO R9700 (32 GB, gfx1201) handles all model inference</div></div>
     </div>
-    <div class="footer">Continues from <a href="part5-r9700-sglang-build-journey.html">Part 5 — Bringing SGLang up on RDNA4</a>. Bench date: 2026-05-29. Author: Pradeep Nallimelli.</div>
+    <div class="footer">Continues from <a href="part6-r9700-sglang-bench-and-verdict.html">Part 6 &mdash; SGLang bench and verdict</a>. Telemetry window: 2026-05-31 to 2026-06-03. Author: Pradeep Nallimelli.</div>
   </div>
 </section>
 
-<section id="method" data-label="Method">
-  <div class="eyebrow">Method</div>
-  <h2>The same model class across every test</h2>
-  <p>Every runtime on this slide ran a Qwen3-30B-A3B model (same architecture, same expert count, same 3B active parameters per token). vLLM and SGLang used 4-bit AWQ packings; llama.cpp used the <code>UD-Q4_K_XL</code> GGUF that the unsloth team published. All four stacks ran on the same R9700 with ROCm 7.2.1 on the same host, within the same week.</p>
-  <table>
-    <thead><tr><th>Runtime</th><th>Model packaging</th><th>Quant kernel</th><th>Notes</th></tr></thead>
-    <tbody>
-      <tr><td>vLLM 0.16</td><td>cyankiwi AWQ-4bit (CT-format)</td><td><code>moe_wna16</code></td><td>Production baseline, Part 2</td></tr>
-      <tr><td>llama.cpp Vulkan</td><td>unsloth UD-Q4_K_XL GGUF</td><td>RADV compute</td><td>Decode champion, Part 3</td></tr>
-      <tr><td>llama.cpp HIP</td><td>unsloth UD-Q4_K_XL GGUF</td><td>rocBLAS</td><td>Prefill champion, Part 4</td></tr>
-      <tr><td>SGLang v0.5.12 + RDNA4</td><td>mattbucci Coder-30B-A3B AWQ-native</td><td><code>moe_wna16</code> (untuned)</td><td>This part</td></tr>
-    </tbody>
-  </table>
-  <p>SGLang ran with <code>sglang.bench_serving</code>, <code>random-input 256</code> / <code>random-output 256</code>, concurrency sweep at N = 1, 4, 8, 16. The full bench log is teed to <code>/home/amd/pradeepn/sglang_r9700/logs/bench_*.log</code>.</p>
-</section>
-
-<section id="sglang-sweep" data-label="SGLang sweep">
-  <div class="eyebrow">SGLang on R9700</div>
-  <h2>Scaling clean to N=8, hitting a ceiling at N=16</h2>
-  <div class="chart-wrap reveal">
-    <h3>Output token throughput across concurrency</h3>
-    <div style="height:300px"><canvas id="cSGL"></canvas></div>
-    <div class="src">Source: SGLang v0.5.12 + RDNA4 patches, Qwen3-Coder-30B-A3B AWQ-native, sglang.bench_serving random 256/256, 1× R9700 32 GB, ROCm 7.2.1, 2026-05-29. Untuned MoE kernel config.</div>
-  </div>
-  <table>
-    <thead><tr><th>Concurrency</th><th>Output tok/s</th><th>Total tok/s</th><th>Mean TPOT (ms)</th><th>Mean TTFT (ms)</th></tr></thead>
-    <tbody>
-      <tr><td>N = 1</td><td><span class="hi">44.3</span></td><td>73.8</td><td>62.9</td><td>489</td></tr>
-      <tr><td>N = 4</td><td><span class="hi">134.6</span></td><td>284.1</td><td>70.0</td><td>427</td></tr>
-      <tr><td>N = 8</td><td><span class="hi">234.2</span></td><td>493.9</td><td>85.8</td><td>526</td></tr>
-      <tr><td>N = 16</td><td><span class="hi">252.4</span></td><td>580.2</td><td>97.3</td><td>4,082</td></tr>
-    </tbody>
-  </table>
-</section>
-
-<section id="ttft" data-label="The TTFT cliff">
-  <div class="eyebrow">The TTFT cliff</div>
-  <h2>Where the wheels start to come off</h2>
-  <p>Output throughput climbs cleanly from N=1 through N=8 — roughly linear scaling per stream — and then flattens between N=8 and N=16. The same range shows a tearaway in time-to-first-token: 489 ms at N=1, 526 ms at N=8, and 4,082 ms at N=16.</p>
-  <div class="chart-wrap reveal">
-    <h3>Mean time-to-first-token (lower is better)</h3>
-    <div style="height:280px"><canvas id="cTTFT"></canvas></div>
-    <div class="src">Same bench harness as previous slide.</div>
-  </div>
-  <p>That cliff is the prefill queue saturating against an MoE kernel that has no tuned config for R9700. The server log called it out at boot — <code>Using default MoE kernel config. Performance might be sub-optimal.</code> Output decode survives because it dispatches narrow shapes that even an untuned kernel handles well. Prefill is where the missing tuning costs real latency.</p>
-</section>
-
-<section id="cross" data-label="Cross-runtime">
-  <div class="eyebrow">Cross-runtime</div>
-  <h2>All three stacks on one chart</h2>
-  <div class="chart-wrap reveal">
-    <h3>Single-stream decode throughput, Qwen3-30B-A3B class — tok/s (higher is better)</h3>
-    <div style="height:320px"><canvas id="cCross"></canvas></div>
-    <div class="src">vLLM: moe_wna16, AWQ; llama.cpp: UD-Q4_K_XL GGUF, -fa 1; SGLang: native AWQ, untuned MoE. 1× R9700, ROCm 7.2.1, 2026-05.</div>
-  </div>
-  <div class="chart-wrap reveal" style="margin-top:24px">
-    <h3>Aggregate throughput at N = 16 — tok/s (higher is better)</h3>
-    <div style="height:280px"><canvas id="cAgg"></canvas></div>
-    <div class="src">llama.cpp omitted — server slot model is not directly comparable to vLLM / SGLang continuous batching.</div>
+<section id="definition" data-label="Definition">
+  <div class="reveal-stagger">
+    <div class="eyebrow">DEFINITION</div>
+    <h2>Agentic AI is not a chatbot.</h2>
+    <p class="lead">A chatbot answers when asked. An agent decides when to ask itself, what to look at, what to write, and what to do next &mdash; on a loop, against real data, without a human prompt in the middle.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">Chatbot</span><span class="num">1:1</span><div class="desc">One human prompt, one model reply. Stateless across calls.</div></div>
+      <div class="card"><span class="lbl">RAG</span><span class="num">1:N</span><div class="desc">One prompt, N retrieved docs, one synthesized reply. Still human-triggered.</div></div>
+      <div class="card"><span class="lbl">Agentic AI</span><span class="num">N:N</span><div class="desc">N timers, N inboxes, N tools. Continuous loop of observe, decide, act, remember.</div></div>
+      <div class="card"><span class="lbl">Field-AI box</span><span class="num">24x7</span><div class="desc">One physical box, agents always on, model always warm, single-writer state.</div></div>
+    </div>
   </div>
 </section>
 
-<section id="verdict" data-label="Verdict">
-  <div class="eyebrow">Verdict</div>
-  <h2>Different runtime for different reason</h2>
-  <table>
-    <thead><tr><th>If you care about...</th><th>Pick</th><th>Why</th></tr></thead>
-    <tbody>
-      <tr><td>Aggregate throughput at scale</td><td><span class="hi">vLLM</span></td><td>381 tok/s at N=16, the highest number in the series.</td></tr>
-      <tr><td>Lowest single-stream latency</td><td><span class="hi">llama.cpp Vulkan</span></td><td>108 tok/s decode, no scheduler overhead.</td></tr>
-      <tr><td>Highest prefill throughput</td><td><span class="hi">llama.cpp HIP</span></td><td>3,491 tok/s pp512.</td></tr>
-      <tr><td>Best scheduler features (prefix cache, spec-dec, structured output)</td><td><span class="hi">SGLang</span></td><td>234 tok/s at N=8, even on untuned kernels.</td></tr>
-    </tbody>
-  </table>
-  <p style="margin-top:18px">There is no single winner. There is a portfolio. For an agentic deployment that values latency on the first reply and throughput across many parallel agents, the right answer today is vLLM in production with a Vulkan llama.cpp fallback for single-user interactive sessions, and an open path to SGLang once its MoE kernels are tuned for RDNA4.</p>
-</section>
-
-<section id="opportunity" data-label="The opportunity">
-  <div class="eyebrow">The opportunity</div>
-  <h2>One tuned config could change the ranking</h2>
-  <p>SGLang's distance from vLLM is not architectural. It is a missing JSON file. The MoE kernel registry already supports R9700; it just has no entry at <code>configs/triton_3_6_0/E=128,N=384,device_name=AMD_Radeon_AI_PRO_R9700,dtype=int4_w4a16.json</code>. Writing that entry is a tuning sweep, not a kernel-rewrite, and a tuned config would close most of the gap to vLLM at N=8 and shorten the prefill queue that drives the N=16 TTFT cliff.</p>
-  <div class="row reveal-stagger">
-    <div class="card"><div class="lbl">FOR THE SGLANG TEAM</div><span class="num">Upstream</span><div class="desc">Merge the 25 RDNA4 patches from the mattbucci fork. Add <code>gfx1200</code> and <code>gfx1201</code> to the <code>setup_rocm.py</code> allow-list. Ship a ROCm wheel.</div></div>
-    <div class="card"><div class="lbl">FOR THE AMD KERNEL TEAM</div><span class="num">Tune</span><div class="desc">Run the SGLang MoE tuner against R9700 and publish the resulting config alongside the existing CDNA entries.</div></div>
-    <div class="card"><div class="lbl">FOR US</div><span class="num">Repeat</span><div class="desc">Re-bench SGLang with the tuned config in hand. Re-publish the cross-runtime chart. That is Part 7 territory.</div></div>
+<section id="phases" data-label="5 phases">
+  <div class="reveal-stagger">
+    <div class="eyebrow">THE FIVE PHASES</div>
+    <h2>Sense, Synthesize, Verify, Decide, Act.</h2>
+    <p class="lead">Every agentic workload reduces to these five phases. The shape of your hardware bill comes from how you map them.</p>
+    <div class="chart-wrap">
+      <h3>Agentic workflow phases &mdash; mapped to FAE Command Center components</h3>
+      <canvas id="ph"></canvas>
+      <div class="src">Source: live process inventory on Genoa-X 10.216.176.12 (2026-06-03). Bar shows distinct components per phase in the production deployment.</div>
+    </div>
+    <table>
+      <thead><tr><th>Phase</th><th>What it does</th><th>Runs on</th></tr></thead>
+      <tbody>
+        <tr><td>1. Sense</td><td>Ingest email, Teams chats, SharePoint files, meeting recordings, Salesforce changes</td><td class="hi">CPU (EPYC) + I/O</td></tr>
+        <tr><td>2. Synthesize</td><td>Embed, summarize, extract entities, write structured rows into the brain</td><td class="hi">R9700 (LLM) + CPU (embeddings)</td></tr>
+        <tr><td>3. Verify</td><td>Fact-check every claim, score veracity, requeue weak rows for re-synthesis</td><td class="hi">R9700 + AMD Enterprise gateway (public oracle)</td></tr>
+        <tr><td>4. Decide</td><td>Route user/agent questions to the right tool, plan multi-step actions</td><td class="hi">R9700 (LLM tool-calling)</td></tr>
+        <tr><td>5. Act</td><td>Send Telegram alert, write SF note, draft email, update Excel tracker, post Teams reply</td><td class="hi">CPU + external APIs</td></tr>
+      </tbody>
+    </table>
   </div>
 </section>
 
-<section id="summary" data-label="Summary">
-  <div class="eyebrow">Summary</div>
-  <h2>What six parts taught us about the R9700</h2>
-  <div class="row reveal-stagger">
-    <div class="card"><div class="lbl">DENSE vs MoE</div><span class="num">6.8×</span><div class="desc">Qwen3-30B-A3B beats dense Qwen2.5-14B-AWQ at 51 vs 7.5 tok/s. MoE is the right shape for this card.</div></div>
-    <div class="card"><div class="lbl">vLLM AGGREGATE</div><span class="num">381 t/s</span><div class="desc">N=16 throughput, moe_wna16 kernel, production-ready today.</div></div>
-    <div class="card"><div class="lbl">VULKAN DECODE</div><span class="num">108 t/s</span><div class="desc">Single-stream, ≈ 85% of an RTX 5090 reference on the same model.</div></div>
-    <div class="card"><div class="lbl">HIP PREFILL</div><span class="num">3,491 t/s</span><div class="desc">pp512 throughput — the right pick for RAG-heavy workloads.</div></div>
-    <div class="card"><div class="lbl">SGLANG SCALING</div><span class="num">N=8</span><div class="desc">Clean linear scaling up to 234 tok/s before the untuned MoE cliff appears.</div></div>
-    <div class="card"><div class="lbl">CARDS BUILT FOR</div><span class="num">3</span><div class="desc">vLLM, llama.cpp, SGLang — three runtimes, three real production paths, all on a 32 GB workstation card.</div></div>
+<section id="workload" data-label="Workload shape">
+  <div class="reveal-stagger">
+    <div class="eyebrow">WORKLOAD SHAPE</div>
+    <h2>What a 4-day window looks like.</h2>
+    <p class="lead">Four days of production traffic from one FAE Manager and a team of seven FAEs, fed by 8,892 indexed meeting recordings and a continuous email/SharePoint stream.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">Inference calls</span><span class="num">49,288</span><div class="desc">vLLM request_success_total. Finish reasons: 44,111 stop &middot; 5,177 length &middot; 0 error &middot; 0 abort.</div></div>
+      <div class="card"><span class="lbl">Prompt tokens</span><span class="num">35.24 M</span><div class="desc">~715 tokens per call on average. The brain feeds the model long context.</div></div>
+      <div class="card"><span class="lbl">Generated tokens</span><span class="num">8.73 M</span><div class="desc">~177 tokens per call. Most replies are short structured JSON or a one-paragraph synthesis.</div></div>
+      <div class="card"><span class="lbl">Mean TTFT</span><span class="num">368 ms</span><div class="desc">vLLM time_to_first_token_seconds_sum / _count. Continuous batching keeps this flat under load.</div></div>
+    </div>
+    <div class="callout"><strong>Prefill / decode ratio is 4 to 1.</strong> Agentic workloads are prefill-heavy because the brain gives the model a lot of context per call. That is the opposite of a chatbot, where decode dominates. It is the reason single-stream tok/s is the wrong KPI for this box.</div>
   </div>
-  <p style="margin-top:24px;font-size:18px;color:var(--text)">The R9700 is not a research curiosity. It is a complete, multi-runtime inference platform that ships agentic-grade LLM serving from a single workstation slot — and the gap between its current numbers and the tuned-kernel ceiling is small enough to be worth closing.</p>
+</section>
+
+<section id="ratio" data-label="Token mix">
+  <div class="reveal-stagger">
+    <div class="eyebrow">PROMPT VS DECODE</div>
+    <h2>Agentic AI is prefill-heavy.</h2>
+    <p class="lead">35.24 million prompt tokens against 8.73 million generated. The model spends most of its silicon reading, not writing. That changes which numbers from Parts 1 through 6 matter most.</p>
+    <div class="chart-wrap">
+      <h3>Cumulative tokens by phase &mdash; 4-day production window</h3>
+      <canvas id="mix"></canvas>
+      <div class="src">Source: vLLM /metrics on R9700 (qwen3-moe model). Window: ~96 hours of agentic traffic. Container vllm-qwen3-moe, rocm/vllm-dev:rocm7.2.1_navi.</div>
+    </div>
+    <p class="muted">From Part 4: this card does <strong>3,491 prompt tok/s</strong> on llama.cpp HIP. From Part 2: vLLM holds <strong>381 tok/s aggregate decode at N=16</strong>. Both numbers matter for agents, but prefill bandwidth is what bounds the brain feeding the model 715-token contexts forty-nine thousand times.</p>
+  </div>
+</section>
+
+<section id="map" data-label="Component map">
+  <div class="reveal-stagger">
+    <div class="eyebrow">FAE COMMAND CENTER, MAPPED</div>
+    <h2>One model. Many agents. One box.</h2>
+    <p class="lead">Ten background agents, four live ingestors, three frontends, two databases. One LLM endpoint. One physical machine.</p>
+    <table>
+      <thead><tr><th>Component</th><th>Type</th><th>Cadence</th></tr></thead>
+      <tbody>
+        <tr><td>EmailClassifierAgent</td><td>Background</td><td>Every 10 min</td></tr>
+        <tr><td>DigestAgent</td><td>Background</td><td>Daily 9:00am</td></tr>
+        <tr><td>WeeklyDigestAgent</td><td>Background</td><td>Weekly Mon 8:00am</td></tr>
+        <tr><td>ActivityTrackerAgent</td><td>Background</td><td>Fri 9:00am + 4:00pm</td></tr>
+        <tr><td>ReminderAgent</td><td>Background</td><td>Hourly</td></tr>
+        <tr><td>SFSyncAgent</td><td>Background</td><td>Every 30 min</td></tr>
+        <tr><td>ProactiveAlertAgent</td><td>Background</td><td>Every 15 min</td></tr>
+        <tr><td>CompetitiveG2Agent</td><td>Background</td><td>Every 14 days</td></tr>
+        <tr><td>brain_verify loop</td><td>Continuous</td><td>24 in flight at all times</td></tr>
+        <tr><td>kb_synth loop</td><td>Continuous</td><td>Single writer to brain.db</td></tr>
+        <tr><td>meeting_harvest (Whisper)</td><td>Ingestor</td><td>Bounded slice per cycle</td></tr>
+        <tr><td>sharepoint_fs_ingest</td><td>Ingestor</td><td>12 parallel workers</td></tr>
+        <tr><td>ingest_email / ingest_teams / ingest_net</td><td>Ingestor</td><td>Continuous</td></tr>
+        <tr><td>telegram_bot &middot; teams_claude_bridge &middot; server.py &middot; Gradio app.py</td><td>Frontend</td><td>Always on</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="why" data-label="Why one card">
+  <div class="reveal-stagger">
+    <div class="eyebrow">WHY ONE CARD WORKS</div>
+    <h2>Continuous batching is the unlock.</h2>
+    <p class="lead">Twenty plus components throwing requests at the model. vLLM's continuous batching folds them into a single rolling forward pass. The R9700 sees one busy queue, never twenty idle ones.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">vLLM iterations</span><span class="num">2.51 M</span><div class="desc">iteration_tokens_total_count: each iteration is one batched forward pass across all in-flight requests.</div></div>
+      <div class="card"><span class="lbl">Tokens per iteration</span><span class="num">17.5</span><div class="desc">iteration_tokens_total_sum / _count. Small batches because requests stagger in, but no idle gaps.</div></div>
+      <div class="card"><span class="lbl">GPU duty cycle</span><span class="num">~100%</span><div class="desc">rocm-smi 'GPU use': pinned at 100% any time an agent batch is in flight. Never observed under 92% during active hours.</div></div>
+      <div class="card"><span class="lbl">VRAM stable</span><span class="num">29.7 GB</span><div class="desc">Of 32 GB. No OOM, no crashes, 4-day uptime. Memory headroom proves the MoE choice from Part 2 was right.</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="valueprop" data-label="Value prop">
+  <div class="reveal-stagger">
+    <div class="eyebrow">WHY THIS HARDWARE, FOR THIS WORKLOAD</div>
+    <h2>R9700 plus Genoa-X is the agentic value play.</h2>
+    <p class="lead">Agentic AI is not the same problem as serving a chatbot. The right card is not the biggest card &mdash; it is the card that holds a quantized MoE with 32k context, runs continuous batching at full duty cycle, and stays on your desk. The right CPU is not the most cores &mdash; it is the one with enough CCDs to give each agent class its own isolated home.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">R9700, 32 GB</span><span class="num">$1 GPU</span><div class="desc">One workstation card holds the model, KV cache for 49k requests, prefix cache for the brain, and 32k context. No second card. No second box.</div></div>
+      <div class="card"><span class="lbl">Continuous batching</span><span class="num">20+ in 1</span><div class="desc">Twenty agents and three frontends fold into one vLLM rolling forward pass. The card sees one busy queue, never twenty idle ones.</div></div>
+      <div class="card"><span class="lbl">Privacy boundary</span><span class="num">Local</span><div class="desc">Customer-bucket data never leaves the card. One router switch decides local vs gateway. Public clouds cannot offer this.</div></div>
+      <div class="card"><span class="lbl">EPYC 9684X</span><span class="num">12 CCDs</span><div class="desc">Each agent class lives on its own CCD with sticky L3. Whisper, brain synth, and four ingest classes never fight for cache.</div></div>
+      <div class="card"><span class="lbl">CPU headroom</span><span class="num">87%</span><div class="desc">p95 agentic load is 13% of 96 cores. The other 87% is reserved for the bursty work (Whisper batches, SharePoint sync) so nothing blocks the GPU pipeline.</div></div>
+      <div class="card"><span class="lbl">Memory bandwidth</span><span class="num">755 GB</span><div class="desc">12-channel DDR5 keeps embedding, JSON parse, and SQLite WAL out of the way of inference. Memory is not the bottleneck on either side of PCIe.</div></div>
+    </div>
+    <div class="callout"><strong>The card you can buy is the card the workload was designed for.</strong> Parts 1-6 measured what a 32 GB RDNA4 part can do. This workload uses every dimension of that headroom and still has the privacy story a Field-AI box needs.</div>
+  </div>
+</section>
+
+<section id="next" data-label="Up next">
+  <div class="reveal-stagger">
+    <div class="eyebrow">UP NEXT</div>
+    <h2>Where the work actually runs.</h2>
+    <p class="lead">Part 8 takes the five-phase map and pins each phase to silicon. Where the EPYC CPU does its job. Where the R9700 does its job. Why this split is what makes a Field-AI box buildable today.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">Part 8</span><span class="num">R9700</span><div class="desc">Does the synthesis. The model is the writer.</div></div>
+      <div class="card"><span class="lbl">Part 8</span><span class="num">EPYC</span><div class="desc">Runs the agents. The CPU is the conductor.</div></div>
+      <div class="card"><span class="lbl">Part 9</span><span class="num">49K</span><div class="desc">Requests, 0 errors. The verdict in production telemetry.</div></div>
+    </div>
+    <div class="footer">Continue to <a href="part8-r9700-r9700-does-synthesis-cpu-runs-agents.html">Part 8 &mdash; R9700 does synthesis, EPYC runs the agents</a>.</div>
+  </div>
 </section>
 
 <script>
@@ -286,31 +322,11 @@ function initCharts(){
   const tip={backgroundColor:'#1d1f21', borderColor:teal, borderWidth:1, titleColor:teal, padding:10};
   const gY={color:'rgba(255,255,255,.05)'}, gX={display:false};
 
-  new Chart(document.getElementById('cSGL'),{type:'bar',
-    data:{labels:['N=1','N=4','N=8','N=16'],
-      datasets:[
-        {label:'Output tok/s',data:[44.3,134.6,234.2,252.4],backgroundColor:teal,borderRadius:6},
-        {label:'Total tok/s',data:[73.8,284.1,493.9,580.2],backgroundColor:tealDeep,borderRadius:6}
-      ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#eaebec'}},tooltip:tip},
-      scales:{y:{beginAtZero:true,grid:gY,ticks:{color:'#b4b9bc'},title:{display:true,text:'Tokens / sec',color:'#b4b9bc'}},x:{grid:gX,ticks:{color:'#b4b9bc'}}}}});
-  new Chart(document.getElementById('cTTFT'),{type:'line',
-    data:{labels:['N=1','N=4','N=8','N=16'],
-      datasets:[{label:'Mean TTFT (ms)',data:[489,427,526,4082],borderColor:red,backgroundColor:'rgba(237,28,36,.12)',tension:.25,fill:true,pointRadius:5,pointBackgroundColor:red}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:tip},
-      scales:{y:{beginAtZero:true,grid:gY,ticks:{color:'#b4b9bc'},title:{display:true,text:'Milliseconds',color:'#b4b9bc'}},x:{grid:gX,ticks:{color:'#b4b9bc'}}}}});
-  new Chart(document.getElementById('cCross'),{type:'bar',
-    data:{labels:['vLLM moe_wna16','SGLang (untuned MoE)','llama.cpp HIP','llama.cpp Vulkan'],
-      datasets:[{label:'tok / sec (single stream)',data:[51,44.3,92,108],backgroundColor:[tealDeep,orange,grey,teal],borderRadius:6}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:tip,
-      title:{display:true,text:'Single-stream decode — Vulkan leads, SGLang trails on untuned kernels',color:'#eaebec',font:{size:14}}},
-      scales:{y:{beginAtZero:true,grid:gY,ticks:{color:'#b4b9bc'},title:{display:true,text:'Tokens / sec',color:'#b4b9bc'}},x:{grid:gX,ticks:{color:'#b4b9bc'}}}}});
-  new Chart(document.getElementById('cAgg'),{type:'bar',
-    data:{labels:['vLLM (N=16)','SGLang (N=16, untuned)'],
-      datasets:[{label:'Aggregate tok/s',data:[381,252.4],backgroundColor:[teal,orange],borderRadius:6}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:tip,
-      title:{display:true,text:'Aggregate at N=16 — vLLM keeps the throughput crown',color:'#eaebec',font:{size:14}}},
-      scales:{y:{beginAtZero:true,grid:gY,ticks:{color:'#b4b9bc'},title:{display:true,text:'Tokens / sec',color:'#b4b9bc'}},x:{grid:gX,ticks:{color:'#b4b9bc'}}}}});
+const phLabels=['Sense','Synthesize','Verify','Decide','Act'];
+const phCounts=[4,2,2,1,4];
+new Chart(document.getElementById('ph'),{type:'bar',data:{labels:phLabels,datasets:[{label:'Components per phase',data:phCounts,backgroundColor:[teal,tealDeep,red,orange,grey],borderRadius:4,maxBarThickness:90}]},options:{plugins:{tooltip:tip,legend:{display:false}},scales:{x:{grid:gX},y:{grid:gY,beginAtZero:true,ticks:{stepSize:1}}}}});
+
+new Chart(document.getElementById('mix'),{type:'bar',data:{labels:['Prompt (prefill)','Generated (decode)'],datasets:[{label:'Tokens',data:[35.24, 8.73],backgroundColor:[teal,orange],borderRadius:6,maxBarThickness:140}]},options:{indexAxis:'y',plugins:{tooltip:{...tip, callbacks:{label:(c)=>c.parsed.x+' M tokens'}},legend:{display:false}},scales:{x:{grid:gY,ticks:{callback:v=>v+' M'}},y:{grid:gX}}}});
 
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initCharts);
