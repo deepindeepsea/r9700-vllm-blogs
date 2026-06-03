@@ -254,17 +254,17 @@ pre .c{color:#6b7075}
   </div>
 </section>
 
-<section id="lowend" data-label="What low-end buys">
+<section id="lowend" data-label="What mainstream buys">
   <div class="reveal-stagger">
-    <div class="eyebrow">WHAT "LOW-END" ACTUALLY BUYS</div>
+    <div class="eyebrow">WHAT A MAINSTREAM PROFESSIONAL CARD ACTUALLY BUYS</div>
     <h2>32 GB. PCIe. GDDR6. And still 84% KV-cache headroom at peak.</h2>
-    <p class="lead">The Radeon AI PRO R9700 sits at the bottom of the AI PRO stack &mdash; PCIe, GDDR6, no HBM. Yet 32 GB is enough to keep Qwen3-30B-A3B-AWQ resident with a 32k context and serve three frontends, nineteen background processes, and tens of thousands of requests per day with 84% of KV cache still free at peak. Headroom is not a small word here.</p>
+    <p class="lead">The Radeon AI PRO R9700 sits in the mainstream of the AI PRO stack &mdash; PCIe, GDDR6, no HBM. Yet 32 GB is enough to keep Qwen3-30B-A3B-AWQ resident with a 32k context and serve three frontends, nineteen background processes, and tens of thousands of requests per day with 84% of KV cache still free at peak. Headroom is not a small word here.</p>
     <div class="chart-wrap">
       <h3>KV cache usage at peak concurrency &mdash; of 32 GB GDDR6 budget</h3>
       <canvas id="cache"></canvas>
       <div class="src">Source: vLLM scheduler line at peak Running = 12, captured during 2026-06-03 observation window. 15.6% used / 84.4% free of the GPU's allocated KV cache budget.</div>
     </div>
-    <div class="callout"><strong>Low-end card. Real datacenter workload. Headroom to spare.</strong> The 32 GB / GDDR6 budget is the part of the spec sheet that looked tight on paper. Live telemetry says it is not the constraint. Concurrency could grow further before the cache hit a ceiling.</div>
+    <div class="callout"><strong>Mainstream professional card. Real datacenter workload. Headroom to spare.</strong> The 32 GB / GDDR6 budget is the part of the spec sheet that looked tight on paper. Live telemetry says it is not the constraint. Concurrency could grow further before the cache hit a ceiling.</div>
   </div>
 </section>
 

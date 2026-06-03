@@ -148,7 +148,7 @@ pre .c{color:#6b7075}
       <div class="card"><span class="lbl">Why vLLM</span><span class="num">~450&ndash;480 tok/s</span><div class="desc">Observed aggregate decode at 23&ndash;24 concurrent agents on this R9700. Nearly 10&times; the single-stream rate &mdash; the multi-agent unlock.</div></div>
       <div class="card"><span class="lbl">Mechanism</span><span class="num">continuous batching</span><div class="desc">vLLM's scheduler packs in-flight requests into one rolling forward pass. New requests join mid-batch; finished ones leave; the GPU never drains.</div></div>
     </div>
-    <div class="callout"><strong>Multi-agent = multi-stream by default.</strong> A demonstration agentic pipeline that is constantly running generates simultaneous traffic by design. A serving stack that cannot batch concurrent requests turns one busy GPU into one bottlenecked GPU. vLLM is what makes a low-end PCIe card like the R9700 economical for real concurrent local agentic workloads.</div>
+    <div class="callout"><strong>Multi-agent = multi-stream by default.</strong> A demonstration agentic pipeline that is constantly running generates simultaneous traffic by design. A serving stack that cannot batch concurrent requests turns one busy GPU into one bottlenecked GPU. vLLM is what makes a mainstream professional PCIe card like the R9700 economical for real concurrent local agentic workloads.</div>
   </div>
 </section>
 
@@ -214,7 +214,7 @@ pre .c{color:#6b7075}
       <canvas id="mix"></canvas>
       <div class="src">Source: vLLM /metrics on R9700 (qwen3-moe model). Window: ~96 hours of agentic traffic. Container vllm-qwen3-moe, rocm/vllm-dev:rocm7.2.1_navi.</div>
     </div>
-    <p class="muted">From Part 4: this card does <strong>3,491 prompt tok/s</strong> on llama.cpp HIP. From Part 2: vLLM holds <strong>381 tok/s aggregate decode at N=16</strong>. In live telemetry under 23&ndash;24 concurrent agents, aggregate decode has been observed climbing to <strong>~450&ndash;480 tok/s</strong> &mdash; nearly 10&times; the ~50 tok/s single-stream rate. That scaling is the whole point: one low-end PCIe card serving many agents at once, not one user at a time.</p>
+    <p class="muted">From Part 4: this card does <strong>3,491 prompt tok/s</strong> on llama.cpp HIP. From Part 2: vLLM holds <strong>381 tok/s aggregate decode at N=16</strong>. In live telemetry under 23&ndash;24 concurrent agents, aggregate decode has been observed climbing to <strong>~450&ndash;480 tok/s</strong> &mdash; nearly 10&times; the ~50 tok/s single-stream rate. That scaling is the whole point: one mainstream professional PCIe card serving many agents at once, not one user at a time.</p>
   </div>
 </section>
 
