@@ -48,7 +48,7 @@
 <header>
   <div class="eyebrow">A field series</div>
   <h1>R9700 + vLLM: getting real agentic AI work out of a mainstream professional PCIe card.</h1>
-  <p class="sub">Nine parts (so far) on bringing up an AMD Radeon AI PRO R9700 alongside a Gen&nbsp;4 EPYC host, picking a runtime, and running a multi-agent workload end&#8209;to&#8209;end &mdash; the same card serving ~50&nbsp;tok/s for one user scales to ~450&ndash;480&nbsp;tok/s aggregate under 23&ndash;24 concurrent agents.</p>
+  <p class="sub">Eleven parts (so far) on bringing up an AMD Radeon AI PRO R9700 alongside a Gen&nbsp;4 EPYC host, picking a runtime, and running a multi-agent workload end&#8209;to&#8209;end &mdash; the same card serving ~50&nbsp;tok/s for one user scales to ~450&ndash;480&nbsp;tok/s aggregate under 23&ndash;24 concurrent agents.</p>
   <p class="byline"><strong>AMD Field AI Enthusiast</strong> &middot; by Pradeep Nallimelli &middot; June 2026</p>
 </header>
 
@@ -114,13 +114,13 @@
   </a>
 </div>
 
-<div class="group-label">Coming next</div>
+<div class="group-label">Block IV &middot; Where the time goes</div>
 <div class="grid">
-  <div class="card" style="opacity:.55; cursor:default;">
-    <div class="num">PART 11+ &middot; PLANNED</div>
-    <div class="title">Where the silicon actually spends its time.</div>
-    <div class="desc">CPU profiling (perf, uProf, PerfXpert), GPU profiling (rocprof, omniperf), and per-stage end-to-end timing across the loop.</div>
-  </div>
+  <a class="card" href="part11-r9700-where-silicon-spends-its-time.html">
+    <div class="num">PART 11</div>
+    <div class="title">Where the silicon actually spends its time &mdash; profiling the loop end to end.</div>
+    <div class="desc">The same agentic pipeline across three workloads, swept 1&ndash;32 on threads vs processes. CPU-bound PDF ingestion (ProcessPool ~1.8&times;, GIL is the wall), network-bound web fetch (CPU idle), and LLM-bound agentic Q&amp;A (99.8% of latency is remote generation).</div>
+  </a>
 </div>
 
 <div class="hint">
