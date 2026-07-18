@@ -48,7 +48,7 @@
 <header>
   <div class="eyebrow">A field series</div>
   <h1>R9700 + vLLM: getting real agentic AI work out of a mainstream professional PCIe card.</h1>
-  <p class="sub">Eleven parts (so far) on bringing up an AMD Radeon AI PRO R9700 alongside a Gen&nbsp;4 EPYC host, picking a runtime, and running a multi-agent workload end&#8209;to&#8209;end &mdash; the same card serving ~50&nbsp;tok/s for one user scales to ~450&ndash;480&nbsp;tok/s aggregate under 23&ndash;24 concurrent agents.</p>
+  <p class="sub">Twelve parts (so far) on bringing up an AMD Radeon AI PRO R9700 alongside a Gen&nbsp;4 EPYC host, picking a runtime, and running a multi-agent workload end&#8209;to&#8209;end &mdash; the same card serving ~50&nbsp;tok/s for one user scales to ~450&ndash;480&nbsp;tok/s aggregate under 23&ndash;24 concurrent agents.</p>
   <p class="byline"><strong>AMD Field AI Enthusiast</strong> &middot; by Pradeep Nallimelli &middot; June 2026</p>
 </header>
 
@@ -120,6 +120,15 @@
     <div class="num">PART 11</div>
     <div class="title">Where the silicon actually spends its time &mdash; profiling the loop end to end.</div>
     <div class="desc">The same agentic pipeline across three workloads, swept 1&ndash;32 on threads vs processes. CPU-bound PDF ingestion (ProcessPool ~1.8&times;, GIL is the wall), network-bound web fetch (CPU idle), and LLM-bound agentic Q&amp;A (99.8% of latency is remote generation).</div>
+  </a>
+</div>
+
+<div class="group-label">Block V &middot; The full sweep</div>
+<div class="grid">
+  <a class="card" href="part12-r9700-the-full-sweep.html">
+    <div class="num">PART 12</div>
+    <div class="title">The full sweep &mdash; three backends, two axes, and the 8,326 revelation.</div>
+    <div class="desc">The sweep the whole series was building toward: every runtime (vLLM, HIP, Vulkan) across both halves of inference &mdash; prefill and decode &mdash; on one 30B model, one R9700. The headline is a prefill figure of 8,326&nbsp;tok/s that was hiding behind the decode yardstick the entire time. <a href="part12-r9700-the-full-sweep-deck.html">Companion slide deck &#8599;</a></div>
   </a>
 </div>
 

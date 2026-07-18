@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>R9700 Full Sweep — Deck · Part 12</title>
+<style>
+  :root{
+    --bg:#131416; --surface:#1d1f21;
+    --teal:#00C2DE; --teal-deep:#007DB8;
+    --text:#eaebec; --muted:#b4b9bc;
+    --hairline:rgba(255,255,255,.08);
+    --card:#1a1c1e; --card-edge:rgba(255,255,255,.06);
+    --amd-red:#ED1C24; --orange:#FF9900; --blue:#5BA4D6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#0c0d0e;color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .deck{
+    position:relative;width:min(96vw,1280px);height:min(96vh,720px);
+    aspect-ratio:16/9;background:
+      radial-gradient(circle at 85% 8%, rgba(0,194,222,.09), transparent 45%),
+      radial-gradient(circle at 8% 92%, rgba(0,125,184,.07), transparent 50%),
+      var(--bg);
+    border:1px solid var(--hairline);border-radius:14px;overflow:hidden;
+    box-shadow:0 30px 90px rgba(0,0,0,.55);
+  }
+  .deck::before{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+    background-image:radial-gradient(circle, rgba(0,194,222,.07) 1px, transparent 1px);
+    background-size:40px 40px;
+    -webkit-mask-image:radial-gradient(ellipse at center, #000 55%, transparent 100%);
+            mask-image:radial-gradient(ellipse at center, #000 55%, transparent 100%);
+  }
+  .slide{position:absolute;inset:0;padding:56px 64px;display:none;flex-direction:column;justify-content:center;z-index:1;opacity:0;transition:opacity .35s ease}
+  .slide.on{display:flex;opacity:1}
+  .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.18em;font-weight:600;color:var(--teal);margin-bottom:14px}
+  h1{font-size:46px;font-weight:700;letter-spacing:-.02em;line-height:1.08;margin-bottom:16px;max-width:1000px;position:relative;padding-bottom:16px}
+  h1::after{content:"";position:absolute;left:0;bottom:0;width:220px;height:1px;background:linear-gradient(90deg,rgba(0,194,222,.45),transparent)}
+  h2{font-size:32px;font-weight:600;letter-spacing:-.015em;line-height:1.14;margin-bottom:12px;max-width:1000px;position:relative;padding-bottom:12px}
+  h2::after{content:"";position:absolute;left:0;bottom:0;width:150px;height:1px;background:linear-gradient(90deg,rgba(0,194,222,.4),transparent)}
+  h3{font-size:19px;font-weight:600;margin-bottom:6px}
+  .lead{font-size:19px;color:var(--muted);max-width:860px;font-weight:300;line-height:1.5;margin-bottom:8px}
+  p{max-width:880px;margin-bottom:10px;color:var(--text);font-size:15px;line-height:1.5}
+  .muted{color:var(--muted)}
+  .byline{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);margin-top:8px}
+  .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;max-width:1120px;margin-top:14px}
+  .card{background:var(--card);border:1px solid var(--card-edge);border-radius:10px;padding:18px}
+  .card .num{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:600;color:var(--teal);letter-spacing:-.02em;line-height:1.1;display:block;margin-bottom:4px}
+  .card .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-weight:600;margin-bottom:8px}
+  .card .desc{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .card.win{border-color:rgba(0,194,222,.4)}
+  .card.mid .num{color:var(--orange)}
+  .card.low .num{color:var(--blue)}
+  .callout{border-left:2px solid var(--teal);padding:12px 16px;background:rgba(0,194,222,.05);border-radius:0 8px 8px 0;margin:14px 0;max-width:900px;color:var(--muted);font-size:14px}
+  .callout strong{color:var(--text)}
+  table{width:100%;max-width:900px;border-collapse:collapse;margin-top:10px;font-size:14px}
+  th,td{text-align:left;padding:8px 14px;border-bottom:1px solid var(--hairline)}
+  th{font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600}
+  td:first-child{color:var(--muted)}
+  td .hi{color:var(--teal);font-weight:600;font-family:'JetBrains Mono',monospace}
+  td .warm{color:var(--orange);font-family:'JetBrains Mono',monospace}
+  code{font-family:'JetBrains Mono',monospace;font-size:12.5px;background:rgba(255,255,255,.04);padding:2px 6px;border-radius:4px;color:var(--teal)}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--muted)}
+  .legend i{display:inline-block;width:20px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  .chart-wrap{background:var(--card);border:1px solid var(--card-edge);border-radius:10px;padding:16px 18px;margin-top:12px;max-width:1000px}
+  .chart-wrap svg{width:100%;height:auto;display:block}
+  .axislbl{fill:#b4b9bc;font-family:'JetBrains Mono',monospace;font-size:11px}
+  .gridln{stroke:rgba(255,255,255,.05)}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:28px;max-width:1120px;align-items:start}
+  .tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--teal);border:1px solid rgba(0,194,222,.3);border-radius:999px;padding:3px 10px;margin-bottom:14px}
+  /* chrome */
+  #hud{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:14px;background:rgba(29,31,33,.85);backdrop-filter:blur(6px);border:1px solid var(--hairline);padding:7px 14px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted)}
+  #hud button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px 6px;border-radius:6px;transition:all .2s}
+  #hud button:hover{color:var(--teal);background:rgba(255,255,255,.05)}
+  #hud .count{color:var(--teal);font-weight:600}
+  #pbar{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--teal),var(--teal-deep));width:0;z-index:30;transition:width .3s ease}
+  #partbar{position:fixed;top:14px;right:20px;z-index:25;display:flex;gap:6px;background:rgba(29,31,33,.85);backdrop-filter:blur(6px);border:1px solid var(--hairline);padding:6px 10px;border-radius:999px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted)}
+  #partbar span{color:var(--teal);font-weight:600;padding:2px 6px}
+  #partbar a{color:var(--muted);text-decoration:none;padding:2px 8px;border-radius:999px}
+  #partbar a.cur{color:var(--bg);background:var(--teal)}
+  .kbd{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);opacity:.7}
+  @media(max-width:820px){.slide{padding:32px 26px}h1{font-size:30px}h2{font-size:23px}.split{grid-template-columns:1fr}#partbar{display:none}}
+</style>
+</head>
+<body>
+<div id="pbar"></div>
+<div id="partbar"><span>DECK</span>
+  <a href="part12-r9700-the-full-sweep.html">Article ↗</a>
+  <a href="#" class="cur">Part 12</a>
+</div>
+<div id="stage">
+  <div class="deck" id="deck">
+
+  <!-- 1 TITLE -->
+  <section class="slide on">
+    <div class="eyebrow">Part 12 · The full sweep</div>
+    <h1>Three backends, two axes, and the number hiding behind the yardstick.</h1>
+    <p class="lead">One 30&#8209;billion&#8209;parameter model. One R9700. Every runtime, both halves of inference &mdash; and a prefill headline of <strong style="color:var(--teal)">8,326&nbsp;tok/s</strong>.</p>
+    <p class="byline">AMD Field AI · Pradeep Nallimelli · July 2026 · R9700 (gfx1201, RDNA4) · Qwen3&#8209;30B&#8209;A3B MoE</p>
+  </section>
+
+  <!-- 2 THE SETUP -->
+  <section class="slide">
+    <div class="eyebrow">The experiment</div>
+    <h2>One model, three ~4&#8209;bit backends, two axes.</h2>
+    <p class="muted">Same base weights (Qwen3&#8209;30B&#8209;A3B), same card, same <code>-fa 1</code>, concurrency&nbsp;1. We measured <strong>prefill</strong> and <strong>decode</strong> across three runtimes.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">Runtime 1</span><h3>llama.cpp · HIP</h3><p class="desc">ROCm rocBLAS, UD&#8209;Q4_K_XL GGUF (~4.5&nbsp;bpw). The compute&#8209;bound baseline.</p></div>
+      <div class="card"><span class="lbl">Runtime 2</span><h3>llama.cpp · Vulkan</h3><p class="desc">RADV KHR_coopmat matrix cores, same GGUF. The bandwidth play.</p></div>
+      <div class="card"><span class="lbl">Runtime 3</span><h3>vLLM · AWQ</h3><p class="desc">AWQ&#8209;4bit, paged / chunked prefill. The datacenter scheduler.</p></div>
+    </div>
+    <div class="callout">Two axes because inference has two halves: <strong>prefill</strong> (read the prompt, compute&#8209;bound) and <strong>decode</strong> (write tokens, bandwidth&#8209;bound). No single backend wins both.</div>
+  </section>
+
+  <!-- 3 PREFILL RESULT -->
+  <section class="slide">
+    <div class="eyebrow">Axis 1 · Prefill</div>
+    <h2>Prefill scales with context &mdash; vLLM peaks at 8,326&nbsp;tok/s.</h2>
+    <div class="chart-wrap">
+      <svg viewBox="0 0 880 380" role="img" aria-label="Prefill throughput vs context length">
+        <line class="gridln" x1="64" y1="40"  x2="856" y2="40"/>
+        <line class="gridln" x1="64" y1="120" x2="856" y2="120"/>
+        <line class="gridln" x1="64" y1="200" x2="856" y2="200"/>
+        <line class="gridln" x1="64" y1="280" x2="856" y2="280"/>
+        <line class="gridln" x1="64" y1="330" x2="856" y2="330"/>
+        <text class="axislbl" x="8" y="44">9k</text>
+        <text class="axislbl" x="8" y="204">4.5k</text>
+        <text class="axislbl" x="20" y="334">0</text>
+        <text class="axislbl" x="52"  y="358">pp512</text>
+        <text class="axislbl" x="430" y="358">pp2048</text>
+        <text class="axislbl" x="812" y="358">pp4096</text>
+        <!-- vLLM -->
+        <polyline fill="none" stroke="#00C2DE" stroke-width="3" points="64,215.7 460,91.7 856,50.5"/>
+        <circle cx="64" cy="215.7" r="4.5" fill="#00C2DE"/><circle cx="460" cy="91.7" r="4.5" fill="#00C2DE"/><circle cx="856" cy="50.5" r="5.5" fill="#00C2DE"/>
+        <text class="axislbl" x="742" y="42" style="fill:#00C2DE;font-weight:600">8,326</text>
+        <!-- HIP -->
+        <polyline fill="none" stroke="#FF9900" stroke-width="3" points="64,214 460,173.5 856,183.8"/>
+        <circle cx="64" cy="214" r="4.5" fill="#FF9900"/><circle cx="460" cy="173.5" r="4.5" fill="#FF9900"/><circle cx="856" cy="183.8" r="4.5" fill="#FF9900"/>
+        <text class="axislbl" x="470" y="168" style="fill:#FF9900;font-weight:600">4,635</text>
+        <!-- Vulkan -->
+        <polyline fill="none" stroke="#5BA4D6" stroke-width="3" points="64,225.4 460,205.5 856,215.1"/>
+        <circle cx="64" cy="225.4" r="4.5" fill="#5BA4D6"/><circle cx="460" cy="205.5" r="4.5" fill="#5BA4D6"/><circle cx="856" cy="215.1" r="4.5" fill="#5BA4D6"/>
+      </svg>
+      <div class="legend"><span><i style="background:#00C2DE"></i>vLLM AWQ</span><span><i style="background:#FF9900"></i>HIP</span><span><i style="background:#5BA4D6"></i>Vulkan</span></div>
+    </div>
+    <div class="callout">vLLM's paged prefill <strong>climbs with context</strong> (8,326 @ pp4096 ≈ 1.9× HIP, 2.5× Vulkan). HIP is a <strong>hump</strong> &mdash; peaks 4,635 @ pp2048, then declines. Long prompts are where the R9700 shines.</div>
+  </section>
+
+  <!-- 4 DECODE RESULT -->
+  <section class="slide">
+    <div class="eyebrow">Axis 2 · Decode</div>
+    <h2>Single&#8209;stream decode flips the winner &mdash; Vulkan at 167.6&nbsp;tok/s.</h2>
+    <div class="split">
+      <div class="chart-wrap" style="margin-top:0">
+        <svg viewBox="0 0 560 300" role="img" aria-label="Decode throughput tg128">
+          <line class="gridln" x1="60" y1="30" x2="540" y2="30"/>
+          <line class="gridln" x1="60" y1="110" x2="540" y2="110"/>
+          <line class="gridln" x1="60" y1="190" x2="540" y2="190"/>
+          <line class="gridln" x1="60" y1="246" x2="540" y2="246"/>
+          <text class="axislbl" x="20" y="34">180</text>
+          <text class="axislbl" x="26" y="194">60</text>
+          <text class="axislbl" x="34" y="250">0</text>
+          <rect x="96"  y="30"    width="110" height="216"   rx="4" fill="#5BA4D6"/>
+          <rect x="257" y="127.4" width="110" height="118.6" rx="4" fill="#FF9900"/>
+          <rect x="419" y="182.5" width="110" height="63.5"  rx="4" fill="#00C2DE" opacity=".6"/>
+          <text class="axislbl" x="118" y="22" style="fill:#5BA4D6;font-weight:600">167.6</text>
+          <text class="axislbl" x="283" y="119" style="fill:#FF9900;font-weight:600">92.1</text>
+          <text class="axislbl" x="447" y="174" style="fill:#00C2DE;font-weight:600">49.3</text>
+          <text class="axislbl" x="118" y="266">Vulkan</text>
+          <text class="axislbl" x="288" y="266">HIP</text>
+          <text class="axislbl" x="452" y="266">vLLM</text>
+        </svg>
+      </div>
+      <div>
+        <p>Decode is memory&#8209;bandwidth bound. Vulkan's coopmat path hits <span style="color:var(--teal)">167.6&nbsp;tok/s</span> &mdash; <strong>1.8× HIP</strong>, 3.4× vLLM, and past the old series baseline of 108.</p>
+        <div class="callout" style="margin-top:12px">vLLM's low decode (49) is a <strong>concurrency=1 artifact</strong>. Its strength is batched throughput, not single&#8209;stream latency. Judge it on prefill, not this slide.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 THREE CHAMPIONS -->
+  <section class="slide">
+    <div class="eyebrow">The verdict</div>
+    <h2>Three champions, no overall winner &mdash; a routing rule.</h2>
+    <div class="row">
+      <div class="card win"><span class="lbl" style="color:var(--teal)">Long&#8209;context prefill</span><span class="num">vLLM</span><p class="desc">AWQ paged prefill scales up with context. 8,326 @ pp4096. Pick it for RAG, long documents, big system prompts.</p></div>
+      <div class="card win"><span class="lbl" style="color:var(--teal)">Single&#8209;stream decode</span><span class="num">Vulkan</span><p class="desc">RADV coopmat, 167.6 tok/s. Pick it for one interactive user who wants the fastest tokens&#8209;per&#8209;second.</p></div>
+      <div class="card mid"><span class="lbl">Balanced / unknown</span><span class="num">HIP</span><p class="desc">Second in both axes, never last. The safe default when the workload mix isn't known yet.</p></div>
+    </div>
+    <div class="callout"><strong>Routing rule a customer can use tomorrow:</strong> prefill&#8209;heavy → vLLM · latency&#8209;sensitive decode → Vulkan · mixed → HIP. Same card, same weights, pick by workload.</div>
+  </section>
+
+  <!-- 6 UB SWEET SPOT -->
+  <section class="slide">
+    <div class="eyebrow">The knob</div>
+    <h2>Micro&#8209;batch <code>ub=2048</code> is a universal resonant point.</h2>
+    <table>
+      <tr><th>Backend</th><th>pp2048 @ ub512</th><th>pp2048 @ ub2048</th><th>Gain</th></tr>
+      <tr><td>HIP</td><td>3,391</td><td><span class="hi">4,635</span></td><td><span class="hi">+36.7%</span></td></tr>
+      <tr><td>Vulkan</td><td>3,019</td><td><span class="hi">3,675</span></td><td><span class="hi">+21.7%</span></td></tr>
+    </table>
+    <div class="callout">The <code>-ub</code> sweet spot reproduces on <strong>both</strong> HIP and Vulkan &mdash; it's a property of this MoE's working set on RDNA4, not a HIP quirk. And <code>pp512</code> can <em>never</em> show it: <code>-ub</code> is pinned by prompt length.</div>
+  </section>
+
+  <!-- 7 YARDSTICK -->
+  <section class="slide">
+    <div class="eyebrow">The revelation</div>
+    <h2>The old "3,491 record" was measured where the knob is switched off.</h2>
+    <p class="lead">For eleven parts we benchmarked at <code>pp512</code> &mdash; the one prompt length where micro&#8209;batch tuning is mathematically disabled.</p>
+    <div class="row">
+      <div class="card mid"><span class="lbl">Old yardstick · pp512</span><span class="num" style="color:var(--orange)">3,491</span><p class="desc">"Resisted all optimization." It couldn't &mdash; the winning knob was off.</p></div>
+      <div class="card win"><span class="lbl">Move to pp2048 · HIP</span><span class="num">4,635</span><p class="desc"><strong>+32.8%</strong> with zero new code &mdash; just the right axis.</p></div>
+      <div class="card win"><span class="lbl">Right backend · pp4096</span><span class="num">8,326</span><p class="desc">vLLM paged prefill &mdash; the number that was there all along.</p></div>
+    </div>
+    <div class="callout"><strong>Measuring in the right place is optimization work.</strong> It's the unglamorous half &mdash; and the half honest enough to publish.</div>
+  </section>
+
+  <!-- 8 HONEST CLAIM -->
+  <section class="slide">
+    <div class="eyebrow">Intellectual honesty</div>
+    <h2>What we can &mdash; and cannot &mdash; claim.</h2>
+    <div class="split">
+      <div class="card win"><span class="lbl" style="color:var(--teal)">Can claim</span><p class="desc" style="color:var(--text)">The <strong>first documented, reproducible, apples&#8209;to&#8209;apples</strong> three&#8209;way characterization (HIP vs Vulkan/coopmat vs vLLM AWQ) of prefill <em>and</em> decode for this 30B MoE on R9700 / gfx1201. Plus a real method finding &mdash; pp512 hides a 2.5× gap; ub=2048 is universal &mdash; and a routing rule.</p></div>
+      <div class="card mid"><span class="lbl" style="color:var(--orange)">Should not claim</span><p class="desc" style="color:var(--text)">An <strong>absolute</strong> throughput record. MI300X, H100/H200, even a 5090 exceed 8,326. It's an excellent number for a 32&nbsp;GB workstation card &mdash; not a global maximum. And no new kernel was invented; the discipline is the contribution.</p></div>
+    </div>
+    <div class="callout">"I didn't do anything" &mdash; not quite. Realizing the baseline was measured where the knob is disabled <strong>is</strong> the work.</div>
+  </section>
+
+  <!-- 9 WHERE NEXT -->
+  <section class="slide">
+    <div class="eyebrow">From measurement to engine</div>
+    <h2>Now beat your own number &mdash; an R9700&#8209;native prefill engine.</h2>
+    <p class="muted">Today's sweep is the <strong>harness</strong> a purpose&#8209;built engine proves itself against &mdash; the R9700 answer to a q36&#8209;class CUDA prefill engine.</p>
+    <div class="row">
+      <div class="card"><span class="lbl">Path A · prefer first</span><h3>MXFP4 → INT4 (AWQ)</h3><p class="desc">Route experts through the <code>wvSplitK</code> INT4 MoE GEMM &mdash; <strong>vindicated on 30B</strong> (75&nbsp;µs, no hang). Prefill first.</p></div>
+      <div class="card"><span class="lbl">Path B</span><h3>MXFP4 → FP8 (E4M3)</h3><p class="desc">Upcast to RDNA4 FP8 WMMA matrix cores &mdash; the other native path to tensor throughput.</p></div>
+      <div class="card"><span class="lbl">New kernel</span><h3>gated&#8209;DeltaNet scan</h3><p class="desc">HIP chunked&#8209;scan for the hybrid linear&#8209;attention trunk &mdash; where long&#8209;prefill work pays off.</p></div>
+    </div>
+    <div class="callout"><strong>Measure first, then beat it</strong> &mdash; every kernel improvement lands against a number that's already honest, reproducible, and on the record.</div>
+  </section>
+
+  <!-- 10 CLOSE -->
+  <section class="slide">
+    <span class="tag">Part 12 · fin</span>
+    <h1>8,326 was always there. We finally moved the yardstick to see it.</h1>
+    <p class="lead">Three backends. Two axes. One honest number &mdash; and a runway to beat it.</p>
+    <p class="byline">Data · <code>/home/amd/pradeepn/local_agent/knowledge/r9700_sweep/</code> · Lab notebook Ch. 11<br>
+    Series · deepindeepsea.github.io/r9700-vllm-blogs · © 2026 AMD Field AI</p>
+  </section>
+
+  </div>
+</div>
+
+<div id="hud">
+  <button id="prev" aria-label="Previous">‹</button>
+  <span class="count"><b id="cur">1</b> / <span id="tot">10</span></span>
+  <button id="next" aria-label="Next">›</button>
+  <span class="kbd">← → · F fullscreen</span>
+</div>
+
+<script>
+const slides=[...document.querySelectorAll('.slide')];
+let i=0;
+const curEl=document.getElementById('cur'), totEl=document.getElementById('tot');
+totEl.textContent=slides.length;
+function show(n){
+  i=Math.max(0,Math.min(n,slides.length-1));
+  slides.forEach((s,k)=>s.classList.toggle('on',k===i));
+  curEl.textContent=i+1;
+  document.getElementById('pbar').style.width=((i/(slides.length-1))*100)+'%';
+}
+document.getElementById('next').onclick=()=>show(i+1);
+document.getElementById('prev').onclick=()=>show(i-1);
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' '){e.preventDefault();show(i+1)}
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();show(i-1)}
+  else if(e.key==='Home'){show(0)} else if(e.key==='End'){show(slides.length-1)}
+  else if(e.key==='f'||e.key==='F'){const d=document.documentElement;document.fullscreenElement?document.exitFullscreen():d.requestFullscreen&&d.requestFullscreen()}
+});
+let sx=null;
+addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});
+addEventListener('touchend',e=>{if(sx===null)return;const dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>50)show(i+(dx<0?1:-1));sx=null},{passive:true});
+show(0);
+</script>
+</body>
+</html>
