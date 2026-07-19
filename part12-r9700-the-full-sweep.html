@@ -103,6 +103,7 @@
 <a href="part10-r9700-datacenter-blueprint-one-node.html">Part 10</a>
 <a href="part11-r9700-where-silicon-spends-its-time.html">Part 11</a>
 <a href="part12-r9700-the-full-sweep.html" class="cur">Part 12</a>
+<a href="part13-r9700-the-35b-only-one-runtime-could-load.html">Part 13</a>
 </div>
 
 <!-- ================= HERO ================= -->
@@ -306,6 +307,59 @@
       </div>
     </div>
     <div class="callout">"I didn't do anything" &mdash; not quite. The +32.8% came from asking <em>"did we sweep the right axes?"</em> Realizing the old baseline was measured where the winning knob is disabled <strong>is</strong> optimization work. It's just the unglamorous half &mdash; and it's the half that's honest enough to publish.</div>
+  </div>
+</section>
+
+<!-- ================= REPRODUCE ================= -->
+<section id="reproduce" data-label="Reproduce it">
+  <div class="reveal">
+    <div class="eyebrow">The recipe, end to end</div>
+    <h2>Reproduce it yourself &mdash; every number, exact commands.</h2>
+    <p class="muted" style="max-width:900px">No hand&#8209;waving. Below is the full environment stamp and the literal commands that produced every cell in the matrix above, including the <strong>8,326&nbsp;tok/s</strong> vLLM prefill peak. Same box, same model, same flags.</p>
+
+    <div class="callout" style="border-left-color:var(--orange)">
+      <strong style="color:var(--orange)">Environment stamp.</strong> Single AMD Radeon AI PRO R9700 (gfx1201, RDNA4, 32&nbsp;GB) on the Genoa&#8209;X host &middot; <strong>ROCm 7.2.1</strong> &middot; llama.cpp build <code>764f1e6</code> (HIP + Vulkan) &middot; vLLM <code>0.16.x</code> navi container &middot; model <strong>Qwen3&#8209;30B&#8209;A3B&#8209;Instruct&#8209;2507</strong> (GGUF <code>UD&#8209;Q4_K_XL</code> for llama.cpp; <code>AWQ&#8209;4bit</code> for vLLM). Flash&#8209;attention (<code>-fa 1</code>) is mandatory on every llama.cpp run.
+    </div>
+
+    <h3 style="color:var(--teal)">1 &middot; HIP path (llama.cpp, ROCm) &mdash; the balanced all&#8209;rounder</h3>
+    <pre><span class="c"># Prefill + decode, micro-batch pinned at the ub=2048 sweet spot.</span>
+<span class="c"># -ub can never exceed prompt length, so pp512 will not show the knob.</span>
+llama-bench -m Qwen3-30B-A3B-Instruct-2507-UD-Q4_K_XL.gguf \
+  -ngl 999 -fa 1 -b 8192 -ub 2048 \
+  -p 512,2048,4096 -n 128 -r 3
+<span class="c"># -> pp2048 = 4,635 tok/s (peak HIP prefill), tg128 = 92 tok/s</span></pre>
+
+    <h3 style="color:var(--teal)">2 &middot; Vulkan path (llama.cpp, RADV coopmat) &mdash; the decode champion</h3>
+    <pre><span class="c"># Build llama.cpp OUT OF TREE with the Vulkan backend (source is root-owned).</span>
+sudo apt install -y glslc libvulkan-dev glslang-tools spirv-headers spirv-tools
+cmake -S llama.cpp -B /home/amd/pradeepn/vkbuild -DGGML_VULKAN=ON -DGGML_HIP=OFF
+cmake --build /home/amd/pradeepn/vkbuild -j
+<span class="c"># Run against the SAME GGUF so the decode win is quant-controlled.</span>
+LD_LIBRARY_PATH=/home/amd/pradeepn/vkbuild/bin \
+  /home/amd/pradeepn/vkbuild/bin/llama-bench \
+  -m Qwen3-30B-A3B-Instruct-2507-UD-Q4_K_XL.gguf \
+  -ngl 999 -fa 1 -b 8192 -ub 2048 -p 512,2048,4096 -n 128 -r 3
+<span class="c"># -> tg128 = 167.6 tok/s (1.8x HIP decode)</span></pre>
+
+    <h3 style="color:var(--teal)">3 &middot; vLLM path (AWQ&#8209;4bit) &mdash; the long&#8209;context prefill king (8,326 tok/s)</h3>
+    <pre><span class="c"># Bring up the paged/chunked-prefill server (navi image: use 'vllm serve', not 'serve').</span>
+docker run -d --name vllm-qwen3-moe --network host --ipc host --shm-size 16g \
+  --device /dev/kfd --device /dev/dri/renderD128 --group-add video --group-add 109 \
+  --security-opt label=disable -v /home/amd/data/hf_home:/root/.cache/huggingface \
+  rocm/vllm-dev:rocm7.2.1_navi_ubuntu24.04_py3.12_pytorch_2.9_vllm_0.16.0 \
+  vllm serve cyankiwi/Qwen3-30B-A3B-Instruct-2507-AWQ-4bit \
+    --dtype float16 --max-model-len 32768 --gpu-memory-utilization 0.92 \
+    --enable-prefix-caching --served-model-name qwen3-moe --host 0.0.0.0 --port 8000
+
+<span class="c"># Measure prefill at 4k context, single request (concurrency=1).</span>
+python benchmarks/benchmark_serving.py --backend openai-chat \
+  --model qwen3-moe --host 127.0.0.1 --port 8000 \
+  --dataset-name random --random-input-len 4096 --random-output-len 1 \
+  --num-prompts 1 --max-concurrency 1
+<span class="c"># prefill tok/s = random-input-len / TTFT  ->  ~8,326 tok/s at pp4096</span></pre>
+
+    <div class="callout">The three commands map one&#8209;to&#8209;one onto the three columns of the matrix. Swap <code>--random-input-len</code> (512 / 2048 / 4096) to walk the vLLM prefill curve; change <code>-p</code> for the llama.cpp paths. Everything else is held constant &mdash; that constancy is the whole point.</div>
+    <div class="footer">Raw run logs &amp; per&#8209;config <code>.txt</code> captures live on the box at <code>/home/amd/pradeepn/local_agent/knowledge/r9700_sweep/</code>.</div>
   </div>
 </section>
 
